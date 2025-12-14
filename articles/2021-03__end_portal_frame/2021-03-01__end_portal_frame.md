@@ -1,20 +1,22 @@
-# 奇葩的末地门框架，竖着放也能用
+# The Quirky End Portal Frame: It Also Works Vertically!
 
-重新回顾了末地传送门框架结构判定，整理了这个特性的历史，再发一次动态
+Revisited the End Portal frame structure detection, organized the history of this feature, and posting again.
 
-Mojang: 没有人比我更懂结构判定。 
+Mojang: Nobody understands structure detection better than me.
 
 
 
-为了让雪傀儡和铁傀儡能够任意旋转结构召唤，一个结构在判定过程中会被旋转比对多次，末地传送门框架的判定逻辑也是同样的。 
+To allow Snow Golems and Iron Golems to be summoned with any rotated structure, a structure is rotated and compared multiple times during detection. The End Portal frame detection logic works the same way.
 
-此判定逻辑在1.9才出现，到目前1.16.4基本没有变化，除了1.9需要末地传送门框架围出的3*3方形区域内(横着和竖着摆都是，竖着的情况见图二) 没有方块阻挡，wiki也指出1.10之前末地传送门的激活可以被方块所阻止(图四)。1.8及之前(仅测试了1.7与1.8)只有平放的末地传送门框架结构可以正常开门，并且没有角落激活的特性。
+This detection logic only appeared in 1.9, and has remained basically unchanged up to the current 1.16.4, except that in 1.9, the 3×3 square area enclosed by the End Portal frames (both horizontal and vertical placements; see Image 2 for vertical case) must not have blocks obstructing it. The wiki also notes that before 1.10, End Portal activation could be blocked by blocks (Image 4). In 1.8 and earlier (only tested 1.7 and 1.8), only horizontally placed End Portal frame structures could properly open the portal, and there was no corner activation feature.
 
-注意：黄色染色玻璃标记的正方体区域是可以成功激活末地传送门结构的位置(图一)，只需要在这个范围里有末地传送门框架被填充末影之眼即可激活末地传送门。这意味着正常平放的末地门框架也可以在结构角落放置一个空框架并填充末影之眼来重新激活(图三)。
+Note: The cubic region marked by yellow stained glass indicates positions where the End Portal structure can be successfully activated (Image 1). You only need to have an End Portal frame filled with an Eye of Ender within this range to activate the End Portal. This means normally horizontal End Portal frames can also be reactivated by placing an empty frame at a corner of the structure and filling it with an Eye of Ender (Image 3).
 
-~~这几个奇葩的门我丢在CCS的OSTC Lab了，有兴趣的可以自己去看看~~。（为什么划掉：因为服关了）
+~~I left these quirky portals at OSTC Lab on CCS, feel free to check them out if you're interested~~. (Why strikethrough: because the server shut down)
 
-麻将你到底在干什么啊麻将
+Mojang, what on earth are you doing, Mojang
+
+("麻将" is a Chinese homophonic joke for Mojang)
 
 
 ![image1](./img/image1.png)

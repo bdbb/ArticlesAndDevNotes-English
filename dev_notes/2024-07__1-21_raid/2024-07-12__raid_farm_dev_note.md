@@ -1,106 +1,106 @@
-# 1.21 袭击农场开发笔记
+# 1.21 Raid Farm Development Notes
 
-## 参与人员
+## Participants
 
 - Youmiel
 
-协助：
+Assistance:
 - Nickid2018
 - sfy_dr
 - MizukiYuu
 
-## 开发动机
+## Development Motivation
 
-1.21 改变了袭击的触发方式，从直接触发变成了使用不详药水之后进入村庄触发。这一更改使得以前的袭击塔农场无法继续沿用，故需要重新开发新的农场。
+1.21 changed the raid trigger method from direct triggering to entering a village after using an ominous potion. This change makes previous raid tower farms no longer usable, requiring development of new farms.
 
-## 构思（2024-07-12）
+## Concept (2024-07-12)
 
-这个设计不考虑自循环不详之瓶，是建立在有充足不详之瓶储备的前提下的。构想中，农场单个运行周期需要完成以下动作：玩家使用不详之瓶 - 检测玩家使用不详之瓶 - 推动玩家使其在准确时刻触发袭击 - 校准塔的运行周期 - 以20gt周期驱动塔的机械结构 - 等待30s - 迁移袭击 - 等待怪物生成 - 怪物处死 - 收集。
+This design doesn't consider self-sustaining Ominous Bottles; it's built on the premise of having sufficient Ominous Bottle reserves. In the concept, a single farm operation cycle needs to complete the following actions: player uses Ominous Bottle - detect player using Ominous Bottle - push player to trigger raid at precise moment - calibrate tower operation cycle - drive tower mechanical structure at 20gt period - wait 30s - migrate raid - wait for mobs to spawn - kill mobs - collect.
 
-\* 让袭击在准确时刻触发的意义是方便对齐塔内机械部分的运行周期（例如预伤害/归中）
+\* The significance of triggering raids at precise moments is to facilitate aligning the tower's mechanical parts' operation cycle (e.g., pre-damage/centering)
 
-因为玩家附近需要布置检测和触发使用物品的线路，怪物处死布置在玩家下方会更方便，可以使用“安心挂机袭击农场”中的处死室。
+Because detection and trigger-use-item circuits need to be arranged near the player, placing mob killing below the player is more convenient; can use the kill chamber from "Worry-Free AFK Raid Farm."
 
-### 是否需要避免袭击招募
+### Whether to Avoid Raid Recruitment
 
-这取决于是否需要回收不详之瓶，既然现在不需要考虑不详之瓶的回收率，那么袭击招募也可以不用管了。
+This depends on whether Ominous Bottles need to be recovered. Since we don't need to consider Ominous Bottle recovery rate now, raid recruitment can also be ignored.
 
-### 如何兼容真/假玩家
+### How to Support Real/Fake Players
 
-目前来看真玩家和假玩家会有以下不同：
+Currently, real players and fake players differ in the following ways:
 
-1. 执行动作的游戏阶段不同，目前看来不影响这个农场设计；
-2. 真玩家有网络延迟，会影响到攻击、主动移动和使用药水的时刻，设计时应注意；
-3. 真玩家右键使用物品可以被盔甲架阻挡，而假玩家会穿过盔甲架点到后面的方块。
+1. Game phases where actions are executed differ; currently doesn't appear to affect this farm design;
+2. Real players have network latency, affecting attack, active movement, and potion use timing; design should note this;
+3. Real player right-click item use can be blocked by armor stands, while fake players click through armor stands to blocks behind.
 
-### 如何防恼鬼
+### How to Prevent Vexes
 
-目前有两种比较可靠的防恼鬼办法：
+Currently there are two relatively reliable anti-vex methods:
 
-1. 恼鬼抑制器
-2. 在摔伤袭击者后立即利用船将其送入方块中挡住视线，避免女巫投药水
+1. Vex suppressor
+2. After fall-damaging raiders, immediately use boats to push them into blocks to block line of sight, preventing witches from throwing potions
 
-### 如何准确触发袭击
+### How to Precisely Trigger Raids
 
-准确触发袭击的技术在之前实验性的“安心挂机袭击农场”中研究过，可以直接用。
-
-
-## 开发日志（2024-07-15）
-
-### 选择阻挡右键使用的方块
-
-挂机玩家处于两个方块中间，不方便使用铁活板门阻挡右键，需要一种可以被红石控制开关并且没有碰撞体积。目前找到的选择是细雪，可以使用活塞，也可以使用发射器。使用发射器放置细雪无法获知放置细雪的状态，故使用活塞会更优一些。
+Precise raid triggering technology was researched in the previous experimental "Worry-Free AFK Raid Farm" and can be directly used.
 
 
-## 开发日志（2024-07-27）
+## Development Log (2024-07-15)
 
-完成了检测瓶子部分的线路布置，仔细思考之后发现单玩家操作实际上不需要将时钟信号和玩家使用瓶子的信号作与运算，因为 30s 的倒计时时间足够上一波袭击刷完。
+### Choosing Blocks to Block Right-Click Use
+
+AFK players are positioned between two blocks, making iron trapdoors inconvenient for blocking right-clicks; need something that can be toggled by redstone and has no collision volume. Currently found option is powder snow, which can use pistons or dispensers. Using dispensers to place powder snow can't determine placement state, so using pistons is better.
+
+
+## Development Log (2024-07-27)
+
+Completed wiring for the bottle detection section. After careful thought, realized single-player operation actually doesn't need to AND the clock signal with the player bottle-use signal, because the 30s countdown time is enough for the previous wave of raids to finish spawning.
 
 ![2024-07-27](./img/raid_farm/2024-07-27_01.40.37.png)
 
-### 船吸结构修复
+### Boat-Suction Structure Repair
 
-24w03a（1.20.5 快照）修改了“实体的视线处于液体中”的判断高度，现在是视线以上 1/9 方块（credit: Nickid2018），导致原船吸结构无法继续使用。现在这个结构中的船需要下移 1/9 方块才能继续使用，做法是将营火（7像素高）换成大型紫水晶芽（5像素高）。
+24w03a (1.20.5 snapshot) modified the judgment height for "entity's line of sight is in liquid," now 1/9 block above line of sight (credit: Nickid2018), causing the original boat-suction structure to no longer work. Now boats in this structure need to be lowered 1/9 block to continue working; the method is changing campfire (7 pixels high) to large amethyst bud (5 pixels high).
 
-注：生物在没有着陆位置时下船，脚底位置会在船的碰撞箱上表面中心。因此就算下移了2像素，掉落物（4像素高）仍然可以碰到水道进入收集，但是如果将大型紫水晶芽换成活板门（3像素高），就会有物品因碰不到水流而卡在船上。
+Note: When mobs dismount boats with no landing position, foot position will be at the center of the boat's collision box upper surface. So even after lowering 2 pixels, drops (4 pixels high) can still touch the water channel for collection. But if large amethyst bud is changed to trapdoor (3 pixels high), items will get stuck on boats because they can't touch water flow.
 
 
-## 开发日志（2024-07-28）
+## Development Log (2024-07-28)
 
-### 布线
+### Wiring
 
-删除了前一天提及的与逻辑，完成了 30s 计时器和玩家视线阻挡部分。
+Removed the AND logic mentioned the previous day, completed 30s timer and player line-of-sight blocking section.
 
 ![2024-07-28_1](./img/raid_farm/2024-07-28_02.00.38.png)
 
-设计了两个20gt比较器环，用于驱动平台。
+Designed two 20gt comparator loops for driving the platform.
 
 ![2024-07-28_2](./img/raid_farm/2024-07-28_02.56.44.png)
 
-### 假人
+### Fake Players
 
-发现假人与盔甲架交互失败时会继续处理“使用手中物品”的逻辑，而不像原版一样直接跳过，因此无法让假人长按使用键并周期性攻击盔甲架来挂机这个袭击塔。
-
-
-## 开发日志（2024-07-29）
-
-### 幽灵物品
-
-玩家背包装满并且手中持有一组食物，食用食物的同时捡起地面的相同物品会发生客户端-服务端不同步的问题。客户端中玩家的物品数量减少后不会因为拾取物品而增加。这个问题导致袭击塔的瓶子补充无法使用。
-
-没有很好的办法更新玩家手中的物品数量，遂弃用目前的检测式思路，重构成时钟式。
+Discovered that fake players continue processing "use item in hand" logic when interaction with armor stand fails, unlike vanilla which directly skips. Therefore can't have fake players long-press use key and periodically attack armor stands to AFK this raid tower.
 
 
-### 重构后的流程
+## Development Log (2024-07-29)
 
-设计为用 608gt 的时钟驱动的袭击塔，因为 608gt = 8 * 76gt，仍然用比较器时钟加计数器制作长时钟。
+### Ghost Items
 
-启动时：开启开关 - 重置时钟 - 延时启动（用于准备工作）- 校准刷怪平台
+When player inventory is full and holding a stack of food, eating food while picking up same items from ground causes client-server desync. Client-side player item count doesn't increase from picking up items after decreasing. This issue prevents raid tower bottle replenishment from working.
 
-每周期（每 76gt 划分一个阶段，正好可以通过锁存器中的信号等级来处理）：
+No good way to update player held item count, so abandoned current detection-based approach and refactored to clock-based.
 
-1. 玩家开始使用不详之瓶；
-2. 推动玩家进入村庄区段，补充不详之瓶，上一周期的袭击生成，启动迁移链；
+
+### Refactored Process
+
+Designed as a 608gt clock-driven raid tower. Since 608gt = 8 * 76gt, still using comparator clock plus counter for long clock.
+
+On startup: Toggle switch - reset clock - delayed start (for preparation) - calibrate spawn platform
+
+Each cycle (each 76gt divided into a phase, can be handled exactly through signal level in latch):
+
+1. Player starts using Ominous Bottle;
+2. Push player into village section, replenish Ominous Bottle, previous cycle's raid spawns, start migration chain;
 3. --
 4. --
 5. --
@@ -108,27 +108,27 @@
 7. --
 8. --
 
-## 开发日志（2024-07-29）
+## Development Log (2024-07-29)
 
-### 重构布线
+### Refactored Wiring
 
-完成了重构，接下来测试效率和稳定性。
+Completed refactoring, next test efficiency and stability.
 
-因为这个袭击塔需要原版表现的客户端才能正确运行，遂邀请了一位朋友（sfy_dr）来挂机袭击塔。
+Because this raid tower requires vanilla-behaving client to run correctly, invited a friend (sfy_dr) to AFK the raid tower.
 
-## 开发日志（2024-09-08）
+## Development Log (2024-09-08)
 
-### 修改时钟
+### Modified Clock
 
-当袭击塔以 20gt 周期驱动时稳定性欠佳，长时间挂机总会刷出恼鬼，遂改为 40gt 周期。比较器时钟设计来自 MizukiYuu：
+When raid tower was driven at 20gt period, stability was poor; long-term AFK always spawned vexes, so changed to 40gt period. Comparator clock design from MizukiYuu:
 
 ![40gt Comparator Fader](<./img/raid_farm/40gt Comparator Fader by MizukiYuu.png>)
 
-想最大化效率，所以还是选择了 602gt 的袭击生成时钟。
+Wanted to maximize efficiency, so still chose 602gt raid generation clock.
 
-### 效率
+### Efficiency
 
-使用真实客户端测试了 800 多分钟，效率和稳定性都得到了充分测试。
+Tested over 800 minutes with real client; efficiency and stability were thoroughly tested.
 
 ![rate](./img/raid_farm/rate.png)
 
@@ -139,4 +139,4 @@
 <br>
 <br>
 
-1.21 袭击农场开发笔记 © 2024 作者: Youmiel 采用 CC BY-NC-SA 4.0 许可。如需查看该许可证的副本，请访问 http://creativecommons.org/licenses/by-nc-sa/4.0/。
+1.21 Raid Farm Development Notes © 2024 Author: Youmiel, licensed under CC BY-NC-SA 4.0. To view a copy of this license, visit http://creativecommons.org/licenses/by-nc-sa/4.0/.

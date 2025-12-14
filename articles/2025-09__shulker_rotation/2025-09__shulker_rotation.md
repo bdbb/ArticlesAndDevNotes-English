@@ -1,75 +1,75 @@
-# 代码并非魔法，“手性”却是民科 —— 潜影贝水平旋转对上下船位置的影响
+# Code Is Not Magic, but "Chirality" Is Pseudoscience — How Shulker Horizontal Rotation Affects Dismount Position
 
-*这篇专栏旨在研究一个 yellowxuuu 于 2022 年 2 月发现的潜影贝特性：[\[MC\] 手 性 潜 影 贝](https://www.bilibili.com/video/BV1LY41157th)。由于该特性发现后多年内并没有公开的、明确的原理解释，导致部分玩家唯现象地理解此特性，明显地误解了其实际机制与出现场景。*
+*This article aims to research a shulker feature discovered by yellowxuuu in February 2022: [\[MC\] Chiral Shulkers](https://www.bilibili.com/video/BV1LY41157th). Since there was no public, clear explanation of the principle for many years after this feature was discovered, some players developed a phenomenon-based understanding of it, clearly misunderstanding its actual mechanism and scenarios.*
 
 
 ## TL;DR
 
-“手性”实际的原理是潜影贝在乘坐船时，其**水平朝向**（`yaw`属性）会被约束在**相对于船的水平朝向**的 `[-105°, +105°]` 范围内。在**水平朝向**被改变之后，潜影贝的**下船方向**也随之改变。该机制直到 25w36b 仍然存在，适用于所有类船载具（船、箱船、竹筏），并且可以通过特别构思的结构变换回原始朝向。“手性”用于指代该特性时，容易和它的原意发生混淆，建议换成“隐偏航”（credit: Fallen_Breath）。
+The actual principle of "chirality" is that when a shulker rides a boat, its **horizontal facing** (`yaw` attribute) is constrained to within `[-105°, +105°]` **relative to the boat's horizontal facing**. After the **horizontal facing** is changed, the shulker's **dismount direction** also changes accordingly. This mechanism still exists as of 25w36b, applies to all boat-type vehicles (boats, chest boats, bamboo rafts), and can be returned to original orientation through specially designed structures. Using "chirality" to refer to this feature easily causes confusion with its original meaning; it's recommended to use "**hidden yaw**" instead (credit: Fallen_Breath).
 
-*\*希望逐步了解机制挖掘过程、理解相关代码的读者可以直接从下一章节开始阅读；希望了解 yellowxuuu 的装置原理的读者请转到[“九、原装置运作原理分析”](#九原装置运作原理分析)；希望直接获取实践知识的读者请转到[“九、原装置运作原理分析-剩余疑问解答”](#剩余疑问解答)；希望了解这一特性最合适的术语的读者请转到[“十三、如何称呼更恰当”](#十三如何称呼更恰当)*
-
-
-## 〇、环境准备
-
-如果你还不知道从何处获取源码，但是希望对照本文自行理解的话，可以按照 [1.21.x 袭击者在 \[96, 112\) 区间内特殊表现的代码分析](../2025-04__1-21_captain_replace/2025-04-09__1-21_captain_replace.md) 中的步骤反编译游戏源码。
-
-本文的讲解基于 Minecraft 1.18.1 版本，使用 Yarn 反混淆表。分析过程中有可能涉及断点调试等手段，所以更建议使用 Fabric mod 开发环境。
+*\*Readers who want to gradually understand the mechanism discovery process and related code can start reading from the next section; readers who want to understand yellowxuuu's device principle please go to ["IX. Original Device Operation Principle Analysis"](#ix-original-device-operation-principle-analysis); readers who want to directly obtain practical knowledge please go to ["IX. Original Device Operation Principle Analysis - Remaining Questions Answered"](#remaining-questions-answered); readers who want to learn the most appropriate terminology for this feature please go to ["XIII. What Would Be a More Appropriate Name"](#xiii-what-would-be-a-more-appropriate-name)*
 
 
-## 一、名词定义
+## 0. Environment Setup
 
-- **水平旋转/水平朝向**：在这里指实体绕 y 轴旋转的角度，两者含义类似，所以可能会混用。Minecraft 中 y 轴为纵轴，代码中以 `yRot`(Mojang mapping) 和 `yaw`(Yarn mapping) 命名相关的旋转角度。
-- **“手性”**：随意命名的特性名词，被 yellowxuuu 用于描述本文中涉及的特性。不清楚是否只有“左”、“右”的区别，仅在涉及原视频或引用他人原话时使用。
+If you don't know where to obtain the source code but wish to follow along with this article, you can follow the steps in [Code Analysis of Special Raider Behavior in \[96, 112\) Range in 1.21.x](../2025-04__1-21_captain_replace/2025-04-09__1-21_captain_replace.md) to decompile the game source code.
 
-
-## 二、初步分析
-
-根据 [BV1LY41157th](https://www.bilibili.com/video/BV1LY41157th) 中的表现，潜影贝经历了如下几个过程：
-
-1. 生成
-2. 第一次上船，从船尾
-3. 第一次下船，到左侧或者右侧
-4. 连续的几次传送
-5. 随机传送到左边的船或者右边的船，从船尾上船
-6. 根据其获得的“手性”决定下船之后的位置
-
-首要问题是潜影贝在哪个阶段获得了“手性”。目前看来，不管是左边的潜影贝还是右边的潜影贝都经历了相同的传送过程，传送大概不会影响潜影贝上下船的表现。那么可能的阶段就是 1 、2 或 3。
-
-另外的疑问是，为什么潜影贝下船可以去往不同位置，而下矿车却没听说过类似的特性？为什么第二次上下船没有赋予潜影贝新的“手性”？这是否说明从船尾上船和从左右两侧上船存在不同的性质？假如让左侧的潜影贝第一次下船到船右侧，右侧的潜影贝第一次下船到船左侧，情况又会怎么变化？
+This article's explanation is based on Minecraft version 1.18.1, using Yarn deobfuscation mapping. The analysis process may involve breakpoint debugging and other methods, so using a Fabric mod development environment is more recommended.
 
 
-## 三、矿车和船下客逻辑差异
+## I. Term Definitions
 
-查阅 [Minecraft wiki](https://zh.minecraft.wiki)，矿车和船各自的页面中分别描述了两种下客逻辑：
+- **Horizontal rotation/Horizontal facing**: Here refers to the angle of entity rotation around the y-axis. The two terms have similar meanings and may be used interchangeably. In Minecraft, the y-axis is the vertical axis; related rotation angles are named `yRot` (Mojang mapping) and `yaw` (Yarn mapping) in code.
+- **"Chirality"**: An arbitrarily named feature term, used by yellowxuuu to describe the feature covered in this article. It's unclear if there's only a "left" and "right" distinction; only used when referencing the original video or quoting others.
 
-> [矿车](https://zh.minecraft.wiki/w/%E7%9F%BF%E8%BD%A6#%E4%B8%8B%E8%BD%A6)：以右、左、右后、左后、右前、左前、后、前的顺序检查八个水平方向（相对于运动方向）上的相邻方块。然后，如果在与矿车高度相同的相邻位置没有合适的位置，矿车会依次搜索上方一格和下方一格处。对于玩家，矿车会继续检查能容纳爬行的玩家的位置。如果仍然没有找到，矿车会选择自身所在的位置作为生物的下车位置。生物的下车位置被确定后，矿车会将实体传送到该位置的中心处。
 
-> [船](https://zh.minecraft.wiki/w/%E8%88%B9#%E8%A1%8C%E4%B8%BA)：在 Java 版中，下船时的落点由玩家当前视角的水平朝向决定，若玩家所朝方向没有与船紧邻的固体方块，落点为船的正中心位置。
+## II. Initial Analysis
 
-这说明矿车的下客位置由矿车的**运动状态**决定，而船的下客位置由乘客的**水平朝向**决定。船的代码中也印证了这点：
+According to the behavior shown in [BV1LY41157th](https://www.bilibili.com/video/BV1LY41157th), the shulker went through the following stages:
+
+1. Spawn
+2. First boarding, from the boat's stern
+3. First dismount, to the left or right side
+4. Several consecutive teleports
+5. Random teleport to the left or right boat, boarding from the stern
+6. Dismount position determined by its acquired "chirality"
+
+The primary question is at which stage the shulker acquired "chirality." Currently, it appears that both left and right shulkers went through the same teleportation process, so teleportation probably doesn't affect shulker boarding/dismounting behavior. So the possible stages are 1, 2, or 3.
+
+Additional questions: Why can shulkers dismount to different positions, but minecarts don't have a similar feature? Why doesn't the second boarding/dismounting give shulkers new "chirality"? Does this suggest boarding from the stern vs. from left/right sides have different properties? If the left shulker first dismounts to the boat's right side, and the right shulker first dismounts to the boat's left side, how would the situation change?
+
+
+## III. Minecart vs. Boat Dismount Logic Differences
+
+Consulting the [Minecraft wiki](https://minecraft.wiki), the pages for minecarts and boats respectively describe two dismount logics:
+
+> [Minecart](https://minecraft.wiki/w/Minecart#Dismount): In order of right, left, back-right, back-left, front-right, front-left, back, front, it checks the eight horizontal directions (relative to direction of movement) for adjacent blocks. Then, if there is no suitable position adjacent to the minecart at the same height, the minecart searches one block above and below in sequence. For players, the minecart continues to check positions that can accommodate a crouching player. If still not found, the minecart chooses its own position as the mob's dismount position. After determining the dismount position, the minecart teleports the entity to the center of that position.
+
+> [Boat](https://minecraft.wiki/w/Boat#Behavior): In Java Edition, the landing point when disembarking is determined by the player's current view horizontal direction. If there is no solid block immediately adjacent to the boat in the direction the player is facing, the landing point is the center of the boat.
+
+This shows minecart dismount position is determined by the minecart's **movement state**, while boat dismount position is determined by the passenger's **horizontal facing**. The boat code confirms this:
 
 ```java
 public class BoatEntity extends Entity {
     /* ... */
     public Vec3d updatePassengerForDismount(LivingEntity passenger) {
         Vec3d vec3d = getPassengerDismountOffset((double)(this.getWidth() * MathHelper.SQUARE_ROOT_OF_TWO), (double)passenger.getWidth(), passenger.getYaw());
-        // ↑ 根据乘客的水平旋转，计算离开船时需要的偏移量
+        // ^ Calculate dismount offset based on passenger's horizontal rotation
         double d = this.getX() + vec3d.x;
         double e = this.getZ() + vec3d.z;
-        BlockPos blockPos = new BlockPos(d, this.getBoundingBox().maxY, e);  // 预定的位置 1
-        BlockPos blockPos2 = blockPos.down();  // 预定的位置 2
+        BlockPos blockPos = new BlockPos(d, this.getBoundingBox().maxY, e);  // Predetermined position 1
+        BlockPos blockPos2 = blockPos.down();  // Predetermined position 2
         if (!this.world.isWater(blockPos2)) {
-            /* 判断下船的位置是否符合下船条件, 略 */
+            /* Check if dismount position meets dismount conditions, omitted */
         }
         return super.updatePassengerForDismount(passenger);
-        // ↑ 调用父类方法，也就是将乘客放置在自身包围盒上表面中心位置
+        // ^ Call parent class method, i.e., place passenger at center of own bounding box upper surface
     }
    /* ... */
 }
 ```
 
-在 fabric mod 开发环境中下断点，可以看到潜影贝下船时的调用栈：
+Setting a breakpoint in the fabric mod development environment, we can see the call stack when a shulker dismounts:
 
 ```
 BoatEntity.updatePassengerForDismount(LivingEntity)
@@ -81,12 +81,12 @@ BoatEntity.tick()
 ...
 ```
 
-上述代码和调用栈中，只是使用了乘客的水平朝向，并没有修改它，说明是其他位置修改了水平朝向，后面需要重点关注的就是影响水平朝向的因素。
+The above code and call stack only use the passenger's horizontal facing without modifying it, meaning horizontal facing is modified elsewhere, so we need to focus on factors affecting horizontal facing next.
 
 
-## 四、生物旋转属性梳理
+## IV. Mob Rotation Property Overview
 
-`Entity` 类中：
+In `Entity` class:
 ```java
 private float yaw;
 private float pitch;
@@ -94,26 +94,26 @@ public float prevYaw;
 public float prevPitch;
 ```
 
-`LivingEntity` 类中：
+In `LivingEntity` class:
 ```java
 public float bodyYaw;
 public float prevBodyYaw;
 public float headYaw;
 public float prevHeadYaw;
-// 还有一些不直接影响姿态的属性，不列出
+// Some other properties that don't directly affect pose, not listed
 ```
 
-可以发现，潜影贝从父类得到了三个水平旋转的属性，它们的含义分别是：
-- `yaw`: 所有实体都有的水平旋转，包括木船、物品实体等非生物；
-- `bodyYaw`: 生物身体的水平旋转，通常由生物的 `tick()` 或者 AI 控制代码中与 `yaw` 同步，但是存在例外；
-- `headYaw`: 生物头部的水平旋转。
+We can see that shulkers inherit three horizontal rotation properties from parent classes, with the following meanings:
+- `yaw`: Horizontal rotation that all entities have, including boats, item entities, and other non-mobs;
+- `bodyYaw`: Mob body horizontal rotation, usually synced with `yaw` by mob's `tick()` or AI control code, but exceptions exist;
+- `headYaw`: Mob head horizontal rotation.
 
 
-## 五、排除干扰
+## V. Eliminating Interference
 
-### 传送是否影响水平旋转
+### Does Teleportation Affect Horizontal Rotation
 
-保险起见，先检查一下潜影贝传送是否影响水平旋转，避免对后续分析产生干扰。
+To be safe, first check if shulker teleportation affects horizontal rotation, to avoid interfering with subsequent analysis.
 
 ```java
 public class ShulkerEntity extends GolemEntity implements Monster {
@@ -127,13 +127,13 @@ public class ShulkerEntity extends GolemEntity implements Monster {
                 if (blockPos2.getY() > this.world.getBottomY() && this.world.isAir(blockPos2) && this.world.getWorldBorder().contains(blockPos2) && this.world.isSpaceEmpty(this, (new Box(blockPos2)).contract(1.0E-6))) {
                 Direction direction = this.findAttachSide(blockPos2);
                     if (direction != null) {
-                        this.detach();  // 脱离所有乘客和载具，不在讨论的涉及的情况内
-                        this.setAttachedFace(direction);  // 修改附着朝向，是独立属性，不影响水平旋转
+                        this.detach();  // Detach from all passengers and vehicles, not in scope of discussion
+                        this.setAttachedFace(direction);  // Modify attached facing, independent property, doesn't affect horizontal rotation
                         this.playSound(SoundEvents.ENTITY_SHULKER_TELEPORT, 1.0F, 1.0F);
-                        this.setPosition((double)blockPos2.getX() + 0.5, (double)blockPos2.getY(), (double)blockPos2.getZ() + 0.5);  // 修改位置，不影响水平旋转
-                        this.dataTracker.set(PEEK_AMOUNT, (byte)0);  // 修改外壳开启的程度
+                        this.setPosition((double)blockPos2.getX() + 0.5, (double)blockPos2.getY(), (double)blockPos2.getZ() + 0.5);  // Modify position, doesn't affect horizontal rotation
+                        this.dataTracker.set(PEEK_AMOUNT, (byte)0);  // Modify shell opening degree
                         this.setTarget((LivingEntity)null);
-                        // ↑ 修改仇恨目标，大部分仇恨相关 AI 仅使用 LookControl，修改的是 headYaw 而不是 yaw
+                        // ^ Modify aggro target, most aggro-related AI only uses LookControl, modifying headYaw not yaw
                         return true;
                     }
                 }
@@ -148,9 +148,9 @@ public class ShulkerEntity extends GolemEntity implements Monster {
 }
 ```
 
-### 潜影贝 AI 是否影响水平旋转
+### Does Shulker AI Affect Horizontal Rotation
 
-既然前面遇到的潜影贝 AI 部分涉及了视线控制（`LookControl`），那就顺便看一下身体控制（`BodyControl`），常规生物 AI 会在这部分修改水平旋转以配合移动和寻路。潜影贝使用的是特殊的 `ShulkerEntity.ShulkerBodyControl`，代码如下：
+Since the shulker AI part encountered earlier involves look control (`LookControl`), let's also check body control (`BodyControl`); regular mob AI modifies horizontal rotation in this part to coordinate movement and pathfinding. Shulkers use the special `ShulkerEntity.ShulkerBodyControl`, code as follows:
 
 ```java
 static class ShulkerBodyControl extends BodyControl {
@@ -164,12 +164,12 @@ static class ShulkerBodyControl extends BodyControl {
 }
 ```
 
-没错，是空的，也就表示潜影贝的 AI 无法对它的水平旋转造成任何影响。同时，潜影贝的 `yaw` 和 `bodyYaw` 也被解耦，不会同步。（注：潜影贝的 `tick()` 中也不存在修改水平旋转的代码）
+That's right, it's empty, meaning shulker AI cannot cause any effect on its horizontal rotation. Additionally, shulker's `yaw` and `bodyYaw` are decoupled and won't sync. (Note: Shulker's `tick()` also doesn't contain code modifying horizontal rotation)
 
 
-## 六、潜影贝自身代码如何处理水平朝向
+## VI. How Shulker's Own Code Handles Horizontal Facing
 
-前文提过的几点不再赘述，下面还有几处设置水平朝向的代码：
+Points mentioned earlier won't be repeated; below are several more locations that set horizontal facing:
 
 ```java
 public class ShulkerEntity extends GolemEntity implements Monster {
@@ -180,7 +180,7 @@ public class ShulkerEntity extends GolemEntity implements Monster {
         if (this.world.isClient) {
             this.prevAttachedBlock = this.getBlockPos();
         }
-        // ↓ 脱离载具时将 bodyYaw 设置成 0，但是不影响 yaw
+        // v When dismounting, set bodyYaw to 0, but doesn't affect yaw
         this.prevBodyYaw = 0.0F;
         this.bodyYaw = 0.0F;
     }
@@ -189,7 +189,7 @@ public class ShulkerEntity extends GolemEntity implements Monster {
     public EntityData initialize(
         ServerWorldAccess world, LocalDifficulty difficulty, SpawnReason spawnReason, @Nullable EntityData entityData, @Nullable NbtCompound entityNbt
     ) {
-        // ↓ 生成时将 yaw 设置成 0
+        // v When spawning, set yaw to 0
         this.setYaw(0.0F);
         this.headYaw = this.getYaw();
         this.resetPosition();
@@ -200,14 +200,14 @@ public class ShulkerEntity extends GolemEntity implements Monster {
     public void updateTrackedPositionAndAngles(double x, double y, double z, float yaw, float pitch, int interpolationSteps, boolean interpolate) {
         this.bodyTrackingIncrements = 0;
         this.setPosition(x, y, z);
-        // ↓ 网络相关的代码，同步旋转属性
+        // v Network-related code, sync rotation properties
         this.setRotation(yaw, pitch);
     }
 
     @Override
     public void readFromPacket(MobSpawnS2CPacket packet) {
         super.readFromPacket(packet);
-        // ↓ 客户端处理潜影贝生成的网络包时将 bodyYaw 设置成 0
+        // v When client handles shulker spawn packet, set bodyYaw to 0
         this.bodyYaw = 0.0F;
         this.prevBodyYaw = 0.0F;
     }
@@ -219,23 +219,23 @@ public abstract class LivingEntity extends Entity {
     /* ... */
 	protected LivingEntity(EntityType<? extends LivingEntity> entityType, World world) {
 		super(entityType, world);
-        /* ...其他无关的初始化逻辑... */
-		this.setYaw((float)(Math.random() * (float) (Math.PI * 2)));    // 将 yaw（单位是角度）设置为 [0.0f, 2 * PI) 中的随机值
+        /* ...other unrelated initialization logic... */
+		this.setYaw((float)(Math.random() * (float) (Math.PI * 2)));    // Set yaw (unit is degrees) to random value in [0.0f, 2 * PI)
 		this.headYaw = this.getYaw();
-        /* ...其他无关的初始化逻辑... */
+        /* ...other unrelated initialization logic... */
 	}
     /* ... */
 }
 ```
 
-不难发现，以上代码不是初始化，就是处理客户端-服务端之间的同步逻辑，没有在后续改变水平朝向。
+It's not hard to notice that the above code is either initialization or handling client-server sync logic, not subsequently changing horizontal facing.
 
-值得注意的是在 `LivingEntity` 构造器中，生物的水平朝向被初始化为 `[0.0f, 2 * PI)` 中的随机值，但是这一属性是按照角度来使用的，这就导致大部分生物被创建时会大致朝向 +z 方向而不是别的方向。对于潜影贝来说，`/summon` 命令、刷怪蛋生成会调用 `ShulkerEntity.initialize(...)` 方法，水平旋转严格为 `0.0f`；而末地城连带生成、因潜影弹击中而生成的潜影贝不会调用 `ShulkerEntity.initialize(...)` 方法，水平旋转为 `[0.0f, 2 * PI)` 中的随机值。
+Worth noting is in the `LivingEntity` constructor, mob horizontal facing is initialized to a random value in `[0.0f, 2 * PI)`, but this property is used in degrees, causing most mobs to roughly face the +z direction when created instead of other directions. For shulkers, `/summon` command and spawn egg spawning call `ShulkerEntity.initialize(...)`, making horizontal rotation strictly `0.0f`; while End City structure spawning and shulkers spawned by shulker bullet hits don't call `ShulkerEntity.initialize(...)`, making horizontal rotation a random value in `[0.0f, 2 * PI)`.
 
 
-## 七、乘客上船时是否会改变水平朝向
+## VII. Does Boarding Change Horizontal Facing
 
-对 `ShulkerEntity.startRiding(Entity, boolean)` 下断点，调用栈如下：
+Setting a breakpoint at `ShulkerEntity.startRiding(Entity, boolean)`, call stack is:
 
 ```
 MobEntity.startRiding(Entity,boolean)
@@ -244,7 +244,7 @@ Entity.startRiding(Entity)
 BoatEntity.tick()
 ```
 
-其中比较有实际内容的 `ShulkerEntity.startRiding(Entity,boolean)` 和 `MobEntity.startRiding(Entity,boolean)` 如下：
+Among these, the ones with substantial content, `ShulkerEntity.startRiding(Entity,boolean)` and `MobEntity.startRiding(Entity,boolean)`, are as follows:
 
 ```java
 // ShulkerEntity
@@ -253,7 +253,7 @@ public boolean startRiding(Entity entity, boolean force) {
         this.prevAttachedBlock = null;
         this.teleportLerpTimer = 0;
     }
-    // ↓ 设置附着朝向
+    // v Set attached facing
     this.setAttachedFace(Direction.DOWN);
     return super.startRiding(entity, force);
 }
@@ -264,22 +264,22 @@ public boolean startRiding(Entity entity, boolean force) {
     boolean bl = super.startRiding(entity, force);
     if (bl && this.isLeashed()) {
         this.detachLeash(true, true);
-    }  // ↑ 解除拴绳
+    }  // ^ Detach leash
 
     return bl;
 }
 ```
 
-这说明潜影贝上船的时候也没有直接改变水平朝向。排除掉上船、下船和潜影贝自己计算时朝向发生变化的可能性，那只有可能是船改变了潜影贝的水平朝向。
+This shows shulkers also don't directly change horizontal facing when boarding. Having eliminated the possibilities of horizontal facing changing during boarding, dismounting, and shulker's own calculations, the only possibility left is that the boat changed the shulker's horizontal facing.
 
 
-## 八、船是如何改变潜影贝水平朝向的
+## VIII. How the Boat Changes Shulker Horizontal Facing
 
-要找到潜影贝的水平朝向被改变的时刻，最便捷的方法是对 `Entity.setYaw(float)` 下条件断点，让它在改变潜影贝水平朝向的时候触发。
+The most convenient method to find when shulker horizontal facing is changed is to set a conditional breakpoint on `Entity.setYaw(float)` to trigger when shulker horizontal facing changes.
 
 ![shulker data](./img/shulker_data.png)
 
-在 yellowxuuu 的示例存档中，潜影贝经过右侧装置后的水平旋转是 `-71.450195f`，那就使用条件表达式 `this instanceof net.minecraft.entity.mob.ShulkerEntity && yaw > -72 && yaw < -71`。触发断点时的调用栈：
+In yellowxuuu's example save, the shulker's horizontal rotation after going through the right device is `-71.450195f`, so use conditional expression `this instanceof net.minecraft.entity.mob.ShulkerEntity && yaw > -72 && yaw < -71`. Call stack when breakpoint triggers:
 
 ```
 Entity.setYaw(float)
@@ -291,7 +291,7 @@ ServerWorld.tickPassenger(Entity,Entity)
 ServerWorld.tickEntity(Entity)
 ```
 
-这非常符合前面的猜测。`BoatEntity.updatePassengerPosition(Entity)` 顾名思义包含了船更新乘客位置的逻辑，事实上也是这样。`BoatEntity.copyEntityData(Entity)` 就比较诡异了，对照 Mojang mapping，它的命名是 `clampRotation(Entity)`，意思是限制乘客的旋转角度，更符合这个方法的内容：
+This matches the earlier speculation very well. `BoatEntity.updatePassengerPosition(Entity)` as the name suggests contains the logic for the boat updating passenger position, which is indeed the case. `BoatEntity.copyEntityData(Entity)` is rather peculiar; in Mojang mapping its name is `clampRotation(Entity)`, meaning to limit passenger rotation angle, which better matches this method's content:
 
 ```java
 public class BoatEntity extends Entity {
@@ -299,142 +299,142 @@ public class BoatEntity extends Entity {
     // clampRotation (Mojang mapping)
 	protected void copyEntityData(Entity entity) {
 		entity.setBodyYaw(this.getYaw());
-        // ↓ 计算从船的水平朝向到乘客的水平朝向的角度差，取值范围限制在 [-180.0f, 180.f)
+        // v Calculate angle difference from boat's horizontal facing to passenger's horizontal facing, value range limited to [-180.0f, 180.f)
 		float f = MathHelper.wrapDegrees(entity.getYaw() - this.getYaw());
-		float g = MathHelper.clamp(f, -105.0F, 105.0F);  // 限制角度差到 [-105.0f, 105.0f]
+		float g = MathHelper.clamp(f, -105.0F, 105.0F);  // Limit angle difference to [-105.0f, 105.0f]
 
-        // ↓ 如果 g - f == 0，说明前面的角度差没有超出范围，无需调整
+        // v If g - f == 0, means previous angle difference didn't exceed range, no adjustment needed
 		entity.prevYaw += g - f;
-		entity.setYaw(entity.getYaw() + g - f);  // 调整乘客的水平朝向
+		entity.setYaw(entity.getYaw() + g - f);  // Adjust passenger's horizontal facing
 		entity.setHeadYaw(entity.getYaw());
 	}
     /* ... */
 }
 ```
 
-正是这个方法改变了潜影贝的水平朝向，正好潜影贝的计算逻辑里不主动改变水平朝向，这个被改变的值才能一直留到下船的时候，表现为下船位置的差异。
+It's precisely this method that changes the shulker's horizontal facing, and since the shulker's calculation logic doesn't actively change horizontal facing, this changed value can persist until dismounting, manifesting as differences in dismount position.
 
 
-## 九、原装置运作原理分析
+## IX. Original Device Operation Principle Analysis
 
-首先了解一下 Minecraft 的坐标系统。y 轴向上，右手系，实体水平旋转为 0 时朝向 z 轴正方向。图中红、黄、蓝分别表示 x、y、z 三轴，和 F3 屏一致，后面截图时都会带上坐标参考。
+First understand Minecraft's coordinate system. y-axis points up, right-handed system, entity horizontal rotation is 0 when facing positive z-axis. In the figure, red, yellow, blue represent x, y, z axes respectively, consistent with F3 screen; subsequent screenshots will include coordinate reference.
 
 ![coordinate system](./img/coord_sys.png)
 
-### 1. 潜影贝第一次上船
+### 1. Shulker First Boarding
 
 ![set 01](./img/set_01.png)
 
-两艘船均朝向 -z 方向，左边装置的船，水平旋转为 `175.99316f`，右边装置的船，水平旋转为 `-176.4502f`。潜影贝从左边装置上船后的水平旋转被调整为 `70.993164f`，朝 -x 方向下船；从右边装置上船后的水平旋转被调整为 `-71.450195f`，朝 +x 方向下船。与代码中发现的 `[-105.0f, 105.0f]` 角度差符合，与乘客下船的机制也符合。
+Both boats face -z direction; the left device's boat has horizontal rotation `175.99316f`, the right device's boat has horizontal rotation `-176.4502f`. Shulker after boarding from left device has horizontal rotation adjusted to `70.993164f`, dismounting toward -x direction; after boarding from right device has horizontal rotation adjusted to `-71.450195f`, dismounting toward +x direction. Matches the `[-105.0f, 105.0f]` angle difference found in code, also matches passenger dismount mechanics.
 
 
-### 2. 潜影贝通过脚手架通道连续传送
+### 2. Shulker Consecutive Teleports Through Scaffolding Passage
 
 ![set 02](img/set_02.png)
 
-查阅代码已经验证，传送不影响潜影贝的水平朝向。
+Code review confirmed that teleportation doesn't affect shulker horizontal facing.
 
-### 3. 潜影贝第二次上船
+### 3. Shulker Second Boarding
 
 ![set 03](img/set_03.png)
 
-两艘船均朝向 -z 方向，左边装置的船，水平旋转为 `176.15292f`，右边装置的船，水平旋转为 `-177.74106f`。
+Both boats face -z direction; the left device's boat has horizontal rotation `176.15292f`, the right device's boat has horizontal rotation `-177.74106f`.
 
-来自下层左侧船、具有 +70 左右水平旋转的潜影贝，经过左边的装置，水平旋转变为 `71.15292f`，朝 -x 方向下船，之后传送到左边平台；经过右边的装置，水平旋转变为 `77.25894f`，尝试朝 -x 方向下船，但是对应方向没有合适的落脚点，所以落在船顶部，**如果之后随机传送到左侧装置，则能朝 -x 方向正常下船**。
+Shulker from lower left boat, with +70 ish horizontal rotation: going through left device, horizontal rotation becomes `71.15292f`, dismounts toward -x direction, then teleports to left platform; going through right device, horizontal rotation becomes `77.25894f`, tries to dismount toward -x direction but no suitable foothold in that direction, so lands on top of boat, **if later randomly teleporting to left device, can normally dismount toward -x direction**.
 
-来自下层右侧船、具有 -70 左右水平旋转的潜影贝，经过右边的装置，水平旋转变为 `-72.74106f`，朝 +x 方向下船，之后传送到右边平台；经过左边的装置，水平旋转变为 `-78.84708f`，尝试朝 +x 方向下船，但是对应方向没有合适的落脚点，所以落在船顶部，**如果之后随机传送到右侧装置，则能朝 +x 方向正常下船**。
+Shulker from lower right boat, with -70 ish horizontal rotation: going through right device, horizontal rotation becomes `-72.74106f`, dismounts toward +x direction, then teleports to right platform; going through left device, horizontal rotation becomes `-78.84708f`, tries to dismount toward +x direction but no suitable foothold in that direction, so lands on top of boat, **if later randomly teleporting to right device, can normally dismount toward +x direction**.
 
-因此，第二层船没有大幅改变潜影贝的水平旋转，更多的是起到筛选作用，只要船的方向大致朝 -z 方向，就能将两类水平旋转情况的潜影贝左右分开。左右镜像的装置可以合并，并且仍旧正常工作，如下图：
+Therefore, the second-layer boat doesn't significantly change shulker horizontal rotation, more of a filtering function; as long as the boat roughly faces -z direction, it can separate shulkers with two types of horizontal rotation left and right. Left-right mirrored devices can be merged and still work normally, as shown:
 
 ![set 03 combine](img/set_03_combine.png)
 
-### 剩余疑问解答
+### Remaining Questions Answered
 
-在[文章的一开始](#初步分析)，提出了针对这个现象的一系列疑问，现在知晓了原理，可以对未解答的疑问做出解释。
+At the [beginning of the article](#ii-initial-analysis), a series of questions about this phenomenon were raised. Now knowing the principle, we can explain the unanswered questions.
 
-#### Q: 为什么潜影贝下船可以去往不同位置，而下矿车却没听说过类似的特性？
+#### Q: Why can shulkers dismount to different positions, but minecarts don't have a similar feature?
 
-A: [“三、矿车和船下客逻辑差异”](#三矿车和船下客逻辑差异)中已对这个问题作出过回答。
+A: Already answered in ["III. Minecart vs. Boat Dismount Logic Differences"](#iii-minecart-vs-boat-dismount-logic-differences).
 
-#### Q: 为什么第二次上下船没有赋予潜影贝新的“手性”？
+#### Q: Why doesn't the second boarding/dismounting give shulkers new "chirality"?
 
-A: 实际上，潜影贝第二次上船后仍然会被船改变水平朝向，但是由于两次上的船朝向相近，潜影贝的水平朝向改变不大；或者正好在允许的范围内，没有发生改变，因此下船方向看起来没有变化。
+A: Actually, shulkers still have their horizontal facing changed by the boat after the second boarding, but since the two boats they board have similar orientations, the shulker's horizontal facing change is small; or it happens to be within the allowed range with no change, so dismount direction appears unchanged.
 
-#### Q: 这是否说明从船尾上船和从左右两侧上船存在不同的性质？
+#### Q: Does this suggest boarding from the stern vs. from left/right sides have different properties?
 
-A: [“七、乘客上船时是否会改变水平朝向”](#七乘客上船时是否会改变水平朝向)中已经确认过，上船的逻辑不改变乘客的水平朝向，所以从哪一个方向上船没有任何影响。
+A: Already confirmed in ["VII. Does Boarding Change Horizontal Facing"](#vii-does-boarding-change-horizontal-facing) that boarding logic doesn't change passenger horizontal facing, so boarding direction has no effect.
 
-#### Q: 假如让左侧的潜影贝第一次下船到船右侧，右侧的潜影贝第一次下船到船左侧，情况又会怎么变化？
+#### Q: If the left shulker first dismounts to the boat's right side, and the right shulker first dismounts to the boat's left side, how would the situation change?
 
-A: 如果说“下船到船某侧”指的是把落脚方块换一个位置，那么除了潜影贝第一次下船会落到船正上方，水平朝向的变化量和第二次下船的位置都不会变。如果说“下船到船某侧”指的是调整船的朝向，让潜影贝换个水平朝向，那么潜影贝最终会分别转移到对角的平台而不是同一侧的平台。
+A: If "dismount to boat's side" means moving the foothold block to a different position, then besides shulker first dismount landing on top of the boat, horizontal facing change amount and second dismount position won't change. If "dismount to boat's side" means adjusting boat orientation to give shulker a different horizontal facing, then shulkers will ultimately transfer to diagonal platforms instead of same-side platforms.
 
 
-## 十、被曲解的“手性”
+## X. Misunderstood "Chirality"
 
-yellowxuuu 的视频中只是演示了分离装置并用“手性”来解释这一现象，没有对“手性”作更深入的解释。但是玩家社区在多年的潜影贝农场设计实践中，仅凭猜测去补充该现象的规律、产生条件等，最终导致这个特性被加入了许多毫无根据的描述。
+yellowxuuu's video only demonstrated the separation device and used "chirality" to explain this phenomenon, without deeper explanation of "chirality." But the player community over many years of shulker farm design practice filled in the feature's rules, trigger conditions, etc. based solely on speculation, ultimately adding many baseless descriptions to this feature.
 
-> **手性**
-> 
-> 当潜影贝在生成后第一次乘坐船时，根据其下船方向的不同，会得到一个向左或向右的手性。
-> 
-> 第一次下船时附着于船左侧方块的潜影贝会得到向左的手性，再次乘坐船时仅能从左侧下船，反之亦然。若手性对应侧没有合适的方块，潜影贝将停留在船所处的方块上。
-> 
-> 潜影贝的手性一经决定便无法更改，但由已有手性的潜影贝复制而来的潜影贝没有手性。
+> **Chirality**
 >
-> —— Minecraft wiki [潜影贝#手性 (由用户 Fight xing​ 编辑)](https://zh.minecraft.wiki/w/%E6%BD%9C%E5%BD%B1%E8%B4%9D?oldid=1019784#%E6%89%8B%E6%80%A7)
+> When a shulker rides a boat for the first time after spawning, depending on its dismount direction, it will get a left or right chirality.
+>
+> Shulkers that attach to the left side of the boat on first dismount will get left chirality, and can only dismount from the left side when riding boats again, and vice versa. If there's no suitable block on the side corresponding to the chirality, the shulker will stay on the block where the boat is located.
+>
+> Once a shulker's chirality is determined it cannot be changed, but shulkers duplicated from existing chiral shulkers have no chirality.
+>
+> —— Minecraft wiki [Shulker#Chirality (edited by user Fight xing)](https://minecraft.wiki/w/Shulker?oldid=2440982#Chirality) (Note: English wiki content may differ)
 
-接下来本章节将逐一列举引用段落中出现的错误，并予以修正。
+The following sections will enumerate errors in the quoted paragraph and provide corrections.
 
-### “……根据其下船方向的不同，会得到……”
+### "...depending on its dismount direction, it will get..."
 
-据[前面的分析](#九原装置运作原理分析)，潜影贝下船的位置由它的水平朝向决定，而水平朝向如何改变由船和潜影贝之间的相对旋转决定。
+According to [previous analysis](#ix-original-device-operation-principle-analysis), shulker dismount position is determined by its horizontal facing, and how horizontal facing changes is determined by relative rotation between boat and shulker.
 
-也就是说，并不是潜影贝下船到哪个方向赋予了它“手性”，而是它的“手性”决定了它从哪个方向下船，和船周围的环境无关，就算它下船到船正上方，被解释为“手性”的水平朝向也早在船上的时候就被修改了。
+That is to say, it's not that which direction the shulker dismounts to that gives it "chirality," but its "chirality" determines which direction it dismounts to, unrelated to the environment around the boat. Even if it dismounts to directly on top of the boat, the horizontal facing interpreted as "chirality" was already modified while on the boat.
 
-### “……向左或向右的手性……”
+### "...left or right chirality..."
 
-“手性”背后的实际属性是实体的水平旋转，而这个属性的取值范围通常是 `[-180.0f, 180.f)`。就算被船的相对旋转范围限制，`[-105.0f, 105.0f]` 的范围也能对应七个下船位置，其中还包括“向前”这样不属于左或右的方向。
+The actual property behind "chirality" is entity horizontal rotation, and this property's value range is typically `[-180.0f, 180.f)`. Even constrained by boat relative rotation range, `[-105.0f, 105.0f]` can correspond to seven dismount positions, including "forward" which belongs to neither left nor right.
 
-### “……再次乘坐船时仅能从 x 侧下船……”
+### "...can only dismount from x side when riding boats again..."
 
-如[“三、矿车和船下客逻辑差异”](#三矿车和船下客逻辑差异)所述，乘客下船到何处看的是乘客的水平朝向，而不是船的左右侧。举个简单的例子：水平朝向为 0 （+z 方向） 的潜影贝乘坐上朝向为 -170 （-z 偏 +x）的船后，水平朝向变为 65（+x +z 方向），从右侧下船。再让它乘坐上朝向为 0 （+z 方向）的船后，自身水平朝向不变，但是相对于船则是从船左侧下船。
+As stated in ["III. Minecart vs. Boat Dismount Logic Differences"](#iii-minecart-vs-boat-dismount-logic-differences), where a passenger dismounts depends on passenger horizontal facing, not boat left/right side. A simple example: a shulker with horizontal facing 0 (+z direction) boards a boat facing -170 (-z slightly toward +x), horizontal facing becomes 65 (+x +z direction), dismounting from right side. Then let it board a boat facing 0 (+z direction), its own horizontal facing unchanged, but relative to the boat it now dismounts from the boat's left side.
 
-### “……潜影贝的手性一经决定便无法更改……”
+### "...Once a shulker's chirality is determined it cannot be changed..."
 
-既然潜影贝的水平朝向是被船限制乘客朝向的代码改变的，那么只要潜影贝再乘坐一次相对旋转差值大于 105 的船，它的水平朝向就能再次改变。
+Since shulker horizontal facing is changed by the boat's passenger facing constraint code, as long as the shulker boards another boat with relative rotation difference greater than 105, its horizontal facing can change again.
 
 
-## 十一、恢复原始水平朝向
+## XI. Restoring Original Horizontal Facing
 
-下图是一种将任意水平朝向的潜影贝逐步调整回 +z 朝向（水平旋转为 0 时的朝向）的原型装置，设计版本为 1.18.1。只保证朝向相同，不保证 `yaw` 的数值相等，有可能是 `360.0f`, `-360.0f` 等数字。红色下界砖为潜影贝初始位置。
+Below is a prototype device for gradually adjusting shulkers with arbitrary horizontal facing back to +z facing (the facing when horizontal rotation is 0), design version 1.18.1. Only guarantees same facing, doesn't guarantee `yaw` numeric values are equal; might be `360.0f`, `-360.0f`, etc. Red nether brick is shulker initial position.
 
-几艘船的水平朝向从下至上依次是：
-- （金合欢木船）任意，模拟潜影贝被随机旋转的状况
+Boat horizontal facings from bottom to top are:
+- (Acacia boat) arbitrary, simulates shulker being randomly rotated
 - 115
 - 45
 - -25
 - -95
-- （深色橡木木船）-105
+- (Dark oak boat) -105
 
 ![rotate back](img/rotate_back_w_coord.png)
 
-如果允许玩家参与，更简单的办法是由玩家操控船向任意方向旋转 360°，再顺势旋转到 `yaw` 等于 105.0f 或 -105.0f。
+If player participation is allowed, an easier method is for the player to control the boat rotating 360° in any direction, then smoothly rotate to `yaw` equal to 105.0f or -105.0f.
 
 
-## 十二、更新的版本是否存在这个特性
+## XII. Does This Feature Exist in Newer Versions
 
-存在，目前看来直到 25w36b，产生核心影响的代码没有改动。另外，该特性适用于所有新加入的类船载具（竹筏、运输船、运输竹筏）。
+Yes, currently it appears that through 25w36b, the code causing the core effect hasn't changed. Additionally, this feature applies to all newly added boat-type vehicles (bamboo raft, chest boat, chest bamboo raft).
 
 
-## 十三、如何称呼更恰当？
+## XIII. What Would Be a More Appropriate Name?
 
-这个特性实际上只是“潜影贝在乘坐船时，其水平朝向会被船的朝向所限制和调整”，并没有独立的、不可更改的属性。用“手性”来描述，不仅容易让人误解为一种二元、不可逆的状态，还可能掩盖了其本质是“水平朝向”这一连续变量的事实。
+This feature is actually just "when a shulker rides a boat, its horizontal facing is constrained and adjusted by the boat's facing," there's no independent, unchangeable property. Using "chirality" to describe it not only easily leads to misunderstanding it as a binary, irreversible state, but may also obscure the fact that its essence is "horizontal facing," a continuous variable.
 
-更何况“手性”作为一个专业名词，广泛用于科教领域，随意借用还容易混淆该词的含义。
+Moreover, "chirality" as a professional term is widely used in science and education fields; casually borrowing it can easily confuse the word's meaning.
 
-因此，建议使用“隐偏航”描述这一机制（credit: Fallen_Breath），既提及了“水平旋转”的属性，又暗示了这个属性的改变是不对外展现的。在具体讨论机制时，直接使用属性原名“水平朝向”、`“yaw”` 或者 `“yRot”` 更佳，既能避免歧义，也方便与代码和游戏机制对应。
+Therefore, it's recommended to use "hidden yaw" to describe this mechanism (credit: Fallen_Breath), which both mentions the "horizontal rotation" property and hints that this property's change isn't externally displayed. When specifically discussing the mechanism, directly using the property's original name "horizontal facing," `"yaw"`, or `"yRot"` is better, avoiding ambiguity and facilitating correspondence with code and game mechanics.
 
-总之，希望本文的分析能为相关讨论提供参考。
+In summary, I hope this article's analysis can provide reference for related discussions.
 
 
 
@@ -444,4 +444,4 @@ yellowxuuu 的视频中只是演示了分离装置并用“手性”来解释这
 <br>
 <br>
 
-"潜影贝水平旋转对上下船位置的影响" © 2025 作者: Youmiel 采用 CC BY-NC-SA 4.0 许可。如需查看该许可证的副本，请访问 http://creativecommons.org/licenses/by-nc-sa/4.0/。
+"How Shulker Horizontal Rotation Affects Dismount Position" © 2025 Author: Youmiel, licensed under CC BY-NC-SA 4.0. To view a copy of this license, visit http://creativecommons.org/licenses/by-nc-sa/4.0/.

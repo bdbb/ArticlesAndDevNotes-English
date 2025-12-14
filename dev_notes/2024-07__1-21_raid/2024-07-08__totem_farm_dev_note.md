@@ -1,81 +1,81 @@
-# 图腾农场开发笔记
+# Totem Farm Development Notes
 
-## 参与人员
+## Participants
 
 - Youmiel
 
-协助：
+Assistance:
 
 - Menggui233
 - Qian_Ye_
 
 
-## 开发动机
+## Development Motivation
 
-1.21 目前还没有适配的袭击塔，尽管女巫掉落物（红石、萤石粉等）可以依靠女巫塔，绿宝石可以靠村民交易，但是图腾没有来源。并且研发图腾农场可以作为袭击塔的技术储备，故设立此项目。
+1.21 doesn't yet have an adapted raid tower. Although witch drops (redstone, glowstone dust, etc.) can rely on witch towers, and emeralds can be obtained through villager trading, there's no source for totems. Additionally, developing a totem farm can serve as technical preparation for raid towers, hence this project was established.
 
-## 构思（2024-07-08）
+## Concept (2024-07-08)
 
-这个设计不考虑自循环不详之瓶，是建立在有充足不详之瓶储备的前提下的。整个塔需要经历的流程是：玩家使用不详之瓶 - 检测玩家使用不详之瓶 - 等待30s - 迁移袭击 - 传送所有怪物到地狱 - 怪物处死 - 收集。
+This design doesn't consider self-sustaining Ominous Bottles; it's built on the premise of having sufficient Ominous Bottle reserves. The entire tower needs to go through the following process: player uses Ominous Bottle - detect player using Ominous Bottle - wait 30s - migrate raid - teleport all mobs to the Nether - kill mobs - collect.
 
-因为真实客户端和服务端之间存在网络延迟，给予玩家不详之瓶之后需要主动检测不详之瓶消耗才能够确定袭击触发的时刻。检测方式为玩家副手拿一组不详之瓶，旁边使用不详之瓶物品和压力板检测玩家是否拾取物品。
+Because there's network latency between real clients and servers, after giving players Ominous Bottles, we need to actively detect Ominous Bottle consumption to determine the raid trigger moment. The detection method is having the player hold a stack of Ominous Bottles in their offhand, with nearby Ominous Bottle items and pressure plates detecting whether the player picks up items.
 
-30s等待可以直接使用瓶子农场中长时间计时器的思路制作计时器，重置端可以用来解决 30s 内多次使用不详之瓶的问题。袭击迁移链可以直接使用 40gt 袭击塔中的单村民迁移链。
+The 30s wait can directly use the long timer approach from bottle farms; the reset end can be used to solve the problem of multiple Ominous Bottle uses within 30s. The raid migration chain can directly use the single-villager migration chain from 40gt raid towers.
 
-因为不死图腾不需要玩家击杀就能获取，那么可以直接将所有怪物传送到地狱摔死。1.21 允许乘客和载具跨维度传送，只需要在生成平台修建地狱门即可。
- 
-乘客可以在载具上受到摔落伤害，可以在不摔死劫掠兽的前提下直接摔死骑士，缩短摔落管道的长度，后续想办法分离劫掠兽即可。
+Since Totems of Undying don't require player kills to obtain, all mobs can be teleported directly to the Nether to fall to death. 1.21 allows passengers and vehicles to teleport across dimensions; just need to build Nether portals on the spawn platform.
 
-
-## 开发日志（2024-07-09）
-
-### 生成平台
-
-生成平台使用两列共计10格生成位置，使用船将怪物推进地狱门。
-
-### 处死管道
-
-劫掠兽有100血，摔死需要100格以上的距离，地狱端处理显然接受不了过高的管道，一是存活时间太长，二是为了一个怪物处死去破基岩不太值得。
-
-摔落结构参考了史莱姆农场中用间隔放置的活板门分离大小史莱姆的设计。上方另加一层更稀疏的活板门来推走存活的劫掠兽。
-
-### 控制玩家使用不详之瓶的方式
-
-玩家按下使用键时，会优先与方块交互/与实体交互，最后才是使用手中的物品。因此可以在玩家面前放置音符盒、压住的箱子、盔甲架等阻挡使用动作发生。
+Passengers can take fall damage while on vehicles, allowing direct fall-killing of riders without killing ravagers, shortening the fall tube length; just need to figure out how to separate ravagers afterward.
 
 
-## 开发日志（2024-07-10）
+## Development Log (2024-07-09)
 
-### 处死室改进
+### Spawn Platform
 
-测试处死室的时候发现有骑士的劫掠兽无法被其他实体推动，遂修改了地狱端弹出实体的设计。增加了一组船和活塞，船用于推出普通袭击怪，活塞用于拉走有骑士的劫掠兽。
+The spawn platform uses two columns totaling 10 spawn positions, using boats to push mobs into Nether portals.
 
-### 计时器
+### Kill Chamber
 
-利用压力板的下降沿信号来确定玩家何时使用了不详之瓶，测重压力板的检测间隔是 10gt，假设中间延迟600gt，则最乐观的情况是玩家使用不详之瓶后 601gt 就迁移袭击，最悲观的情况是玩家使用不详之瓶后 610gt 才迁移袭击。扣除玩家使用物品所需的32gt，剩下 568gt 需要延时器处理，电路直接借用不详之瓶农场中的40分钟计时器。
+Ravagers have 100 HP, requiring over 100 blocks of distance to fall-kill. Nether-side processing obviously can't accept too tall a tube—first, survival time is too long; second, breaking bedrock for one mob kill isn't worth it.
 
-分解因数后发现，568gt 附近 572、567、560 gt 比较适合作为长计时器的参数，分别是：572 = 4 * 11 * 13， 567 = 9 * 9 * 7， 560 = 8 * 5 * 14 = 7 * 8 * 10。最后实际使用的参数是 40 * 14 = 560，剩余40gt的余量留给玩家使用物品和电路延迟。
+The fall structure referenced the design from slime farms using spaced trapdoors to separate large and small slimes. An additional sparser trapdoor layer was added above to push away surviving ravagers.
 
-控制器部分时序如下：检测到玩家拾取不详之瓶 - (重置定时器 - 投出新的瓶子 - 检测瓶子是否被玩家拾取，若有，则循环) - 定时器计时完成 - 反复遮挡玩家和音符盒的连线使其开始使用下一瓶 - 计时满 600gt 后迁移袭击。
+### Method of Controlling Player Ominous Bottle Use
 
-###  控制玩家使用不详之瓶的方式（补充）
-
-假人的长按使用无法被盔甲架阻挡，改成音符盒才行。
-
-2024-07-28 补充：最开始我以为是假人会无视盔甲架与后方方块直接交互，事实上是假人与盔甲架交互失败时会继续处理“使用手中物品”的逻辑，而不像原版一样直接跳过。
+When players press the use key, they'll prioritize interacting with blocks/entities, and only lastly use the item in hand. Therefore, you can place note blocks, weighted chests, armor stands, etc. in front of players to block the use action.
 
 
-## 开发日志（2024-07-11）
+## Development Log (2024-07-10)
 
-### 物品收集
+### Kill Chamber Improvements
 
-测试得，农场的效率如下：
+Testing the kill chamber revealed that ravagers with riders can't be pushed by other entities, so the Nether-side entity ejection design was modified. Added a set of boats and pistons; boats push out regular raid mobs, pistons pull away ravagers with riders.
+
+### Timer
+
+Using the pressure plate's falling edge signal to determine when players used Ominous Bottles; weighted pressure plate detection interval is 10gt. Assuming 600gt intermediate delay, the most optimistic case is migrating the raid 601gt after player uses Ominous Bottle, worst case is 610gt. Subtracting the 32gt needed for players to use items, the remaining 568gt needs delay circuit handling; circuit directly borrowed from the 40-minute timer in Ominous Bottle farms.
+
+After factoring, near 568gt, 572, 567, 560gt are relatively suitable as long timer parameters: 572 = 4 * 11 * 13, 567 = 9 * 9 * 7, 560 = 8 * 5 * 14 = 7 * 8 * 10. The actually used parameter is 40 * 14 = 560, leaving 40gt margin for player item use and circuit delay.
+
+Controller timing sequence: Detect player picking up Ominous Bottle - (reset timer - dispense new bottle - detect if bottle is picked up by player, if yes loop) - timer completes - repeatedly block line of sight between player and note block to start next bottle - migrate raid 600gt after timer completes.
+
+### Method of Controlling Player Ominous Bottle Use (Supplement)
+
+Fake player long-press use can't be blocked by armor stands; needs to be changed to note blocks.
+
+2024-07-28 supplement: Initially I thought fake players would ignore armor stands and interact directly with blocks behind them; actually fake players continue processing "use item in hand" logic when interaction with armor stand fails, unlike vanilla which directly skips.
+
+
+## Development Log (2024-07-11)
+
+### Item Collection
+
+Testing showed farm efficiency as follows:
 
 ![rate](./img/totem_farm/rate.png)
 
-有价值的产物是红石粉、火药、萤石粉和不死图腾。使用大吸力分类打包前三者，不死图腾和鞍通过不可堆叠分离器之后直接打包，模块依然是现成的。
+Valuable products are redstone dust, gunpowder, glowstone dust, and Totems of Undying. Using high-throughput sorting to pack the first three, Totems of Undying and saddles are directly packed after non-stackable separation; modules are still ready-made.
 
-另外，产物中不详之瓶的效率是 77/h，袭击触发速度是 120/h 左右，证明“每波袭击产出不详之瓶的期望是 2/3”这个结论是正确的。
+Additionally, Ominous Bottle efficiency in the output is 77/h, raid trigger rate is about 120/h, proving the conclusion "expected Ominous Bottle output per raid wave is 2/3" is correct.
 
 
 
@@ -84,4 +84,4 @@
 <br>
 <br>
 
-图腾农场开发笔记 © 2024 作者: Youmiel 采用 CC BY-NC-SA 4.0 许可。如需查看该许可证的副本，请访问 http://creativecommons.org/licenses/by-nc-sa/4.0/。
+Totem Farm Development Notes © 2024 Author: Youmiel, licensed under CC BY-NC-SA 4.0. To view a copy of this license, visit http://creativecommons.org/licenses/by-nc-sa/4.0/.

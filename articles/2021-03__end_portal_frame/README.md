@@ -1,4 +1,4 @@
-# [动态备份] 奇葩的末地门框架，竖着放也能用
+# [Archive] The Quirky End Portal Frame: It Also Works Vertically!
 
-因为动态太乱了，感觉不好找，就用专栏保存一下，原动态链接(2021-03-01 15:51)：https://t.bilibili.com/497128123618163817
+Since the dynamics post was quite messy and hard to find, I'm archiving it here as an article. Original post (2021-03-01 15:51): https://t.bilibili.com/497128123618163817
 

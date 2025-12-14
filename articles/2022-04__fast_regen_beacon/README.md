@@ -1,13 +1,13 @@
-# 快速回血信标时序分析
+# Fast Regeneration Beacon Timing Analysis
 
-快速回血信标的设计者是 Zomie101，TMA Discord 消息链接：https://discord.com/channels/594920796867133446/594937596786900993/894035096246575214
+The designer of the fast regeneration beacon is Zomie101. TMA Discord message link: https://discord.com/channels/594920796867133446/594937596786900993/894035094246575214
 
-1. 使用了 32gt 的时钟遮挡信标，信标每 80gt 刷新一次药水效果，两者的公倍数是 160，也相当于把信标工作周期延长了一倍，也就是玩家的生命恢复1 效果每 160gt 才会刷新；
+1. Uses a 32gt clock to block the beacon. The beacon refreshes potion effects every 80gt. The LCM of these is 160, effectively doubling the beacon's working cycle—meaning the player's Regeneration I effect only refreshes every 160gt;
 
-2. 生命恢复1 的回血方式是“每当药水效果剩余时间是 50gt 的整数倍时，恢复一点血量”，而满级信标给予玩家 340gt 的生命恢复，结合 80gt 的刷新周期不难发现，玩家只有在生命恢复1 效果剩余 300gt 时回血一次，实际上每 80gt 恢复 1 血，不及正常回血的 50gt 恢复 1 血；
+2. Regeneration I heals by "restoring one health point whenever the potion effect's remaining time is a multiple of 50gt." A full beacon gives players 340gt of Regeneration. Combined with the 80gt refresh cycle, we can see that players only heal once when Regeneration I has 300gt remaining—actually recovering 1 health per 80gt, which is worse than normal healing of 1 health per 50gt;
 
-3. 将生命恢复1 效果刷新周期延长到 160gt 后，玩家可以在生命恢复1 效果剩余 300gt、250gt、200gt 时回血，共计三次，也就是每 160gt 恢复 3 血，平均每 80gt 恢复 1.5 血，回血速度是常规信标的 1.5 倍。
+3. After extending the Regeneration I effect refresh cycle to 160gt, players can heal when Regeneration I has 300gt, 250gt, and 200gt remaining—three times total. This means 3 health per 160gt, averaging 1.5 health per 80gt, 1.5 times the healing speed of a regular beacon.
 
-## 文件内容
+## File Contents
 
-整个 Jupyter Notebook 中都是我用来 Matplotlib 绘制时序图的代码
+The entire Jupyter Notebook contains code I used to draw timing diagrams with Matplotlib

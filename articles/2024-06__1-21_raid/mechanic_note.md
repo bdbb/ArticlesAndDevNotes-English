@@ -1,110 +1,110 @@
-把自己平时零散的研究整合一下，某些我认为像是未定义特性的东西就暂时不写了，免得被修。按照Mojang现在的更新习惯，就算是看上去没什么问题的东西，说不定哪个小版本又改了。
+Consolidating my scattered research. Some things I consider undefined features will be temporarily omitted to avoid being patched. Given Mojang's current update habits, even things that seem fine might be changed in some minor version.
 
 
-## 2024-06-14 更新, MC 1.21
+## 2024-06-14 Update, MC 1.21
 
-1. 不详之瓶的掉落条件是<不在袭击中(指没有RaidID)>并且是<袭击队长>的<掠夺者>，卫道士不能掉落不详之瓶；
+1. The drop condition for Ominous Bottles is <not in a raid (meaning no RaidID)> AND is a <raid captain> AND is a <pillager>. Vindicators cannot drop Ominous Bottles;
 
-2. 并不是每次袭击（指包括全部波数的袭击事件）都能掉落不详之瓶，在一波怪物中，卫道士早于掠夺者生成，假如某波怪中包含卫道士，那么掠夺者不可能会是队长。按照代码定义，每波怪物的基础组成如下。大于1级的不祥之兆刷出的额外波大致是<当前难度下>的最后一波怪物组成，具体情况在当前主题下不重要：
+2. Not every raid (meaning the entire raid event including all waves) can drop Ominous Bottles. Within a wave, vindicators spawn before pillagers. If a wave contains vindicators, a pillager cannot possibly be captain. According to code definition, the base composition of each wave is as follows. Extra waves spawned by Bad Omen above level 1 are roughly the composition of the last wave <at current difficulty>, specifics don't matter for this topic:
 
 ![each_wave](./img/note/each_wave.png)
 
-3. 在每波怪物中会额外生成一些卫道士和掠夺者，其中简单和普通难度可能生成 0\~1 卫道士（简单难度随机到 0 的概率更大），困难难度可能生成 0\~2 卫道士，所以 (2) 中有潜力的 1、3 两波也不是必然刷出是掠夺者的队长。
+3. Each wave additionally spawns some vindicators and pillagers. Easy and Normal difficulty may spawn 0~1 vindicators (Easy difficulty has higher probability of 0), Hard difficulty may spawn 0~2 vindicators. So waves 1 and 3 from (2) with potential also don't necessarily spawn a pillager captain.
 
-4. 袭击迁移机制没有改动。
-
-
-目前用丐版袭击塔试下来的感觉是经常会遇到不详之瓶入不敷出的情况，达到自循环相当困难。可能的解决方法：
-
-1. 专门改造前哨站来获取不详之瓶
-
-2. 利用袭击怪会主动捡旗帜补上队长空位的AI来把卫道士队长替换成掠夺者队长，由于 MC-247440 还没修，难度进一步增加
+4. Raid migration mechanics unchanged.
 
 
-## 2024-06-28 更新, MC 1.21
+Current testing with budget raid tower shows frequent situations where Ominous Bottles income doesn't cover consumption, making self-sustainability quite difficult. Possible solutions:
 
-1. 不详之瓶仅能由掠夺者掉落确定为有意设计的特性(Work As Intended, WAI)，相关bug报告 MC-270014 处理结果为 WAI(https://bugs.mojang.com/browse/MC-270014)。另外，1.21 更新日志中写的是“Ominous Bottles can be found uncommonly in any Vaults, and are dropped by Raid Captains which are defeated outside a Raid”，与实际情况矛盾，但是 Mojang 似乎并不是很在意(https://bugs.mojang.com/browse/MC-273895)。
+1. Specifically modify an outpost to obtain Ominous Bottles
 
-
-
-## 2024-07-04 更新, MC 1.21
-
-1. 不祥之兆在当前位置处于一个5级袭击范围内的时候不会转变成袭击之兆。
-
-2. 掠夺者小队长掉落不详之瓶的等级在 1\~5 内随机，各等级掉落概率相同。
+2. Use raid mob AI that actively picks up banners to fill captain vacancy to replace vindicator captains with pillager captains. Since MC-247440 isn't fixed yet, difficulty further increases
 
 
-## 2024-07-09 更新, MC 1.21
+## 2024-06-28 Update, MC 1.21
 
-1. 客户端长按使用物品由两个网络包控制：
-   - ServerboundUseItemPacket：负责通知服务端玩家何时开始使用物品
-   - ServerboundPlayerActionPacket：当 action 字段为 RELEASE_USE_ITEM 或者 SWAP_ITEM_WITH_OFFHAND 时，终止玩家使用物品
+1. Ominous Bottles only droppable by pillagers confirmed as intended design (Work As Intended, WAI). Related bug report MC-270014 processed as WAI (https://bugs.mojang.com/browse/MC-270014). Additionally, 1.21 changelog states "Ominous Bottles can be found uncommonly in any Vaults, and are dropped by Raid Captains which are defeated outside a Raid," contradicting actual behavior, but Mojang doesn't seem to care much (https://bugs.mojang.com/browse/MC-273895).
 
 
-## 2024-08-14 更新, MC 1.21
 
-1. MC 1.21 中，每波袭击的产物期望是 180.765（不处理骑士）或 192.1675（处理骑士），假设困难难度，袭击等级在2以上，使用抢夺3并且所有怪物都被玩家击杀，不考虑鞍和药水。其中女巫掉落物的期望是 93.75/波，红石粉的期望为 56.25/波。其余内容见表格，数据基于 @何为氕氘氚 在 1.21 前的工作重新计算。
+## 2024-07-04 Update, MC 1.21
+
+1. Bad Omen doesn't convert to Raid Omen when current position is within a level 5 raid's range.
+
+2. Pillager captain dropped Ominous Bottle level is random within 1~5, equal probability for each level.
+
+
+## 2024-07-09 Update, MC 1.21
+
+1. Client long-press item use is controlled by two network packets:
+   - ServerboundUseItemPacket: Notifies server when player starts using item
+   - ServerboundPlayerActionPacket: When action field is RELEASE_USE_ITEM or SWAP_ITEM_WITH_OFFHAND, terminates player item use
+
+
+## 2024-08-14 Update, MC 1.21
+
+1. In MC 1.21, expected drops per raid wave is 180.765 (without ravager handling) or 192.1675 (with ravager handling), assuming Hard difficulty, raid level above 2, using Looting 3 and all mobs killed by player, not counting saddles and potions. Witch drops expected at 93.75/wave, redstone dust expected at 56.25/wave. Remaining content in table, data recalculated based on @何为氕氘氚's work before 1.21.
 
 ![Drops](img/note/drops.png)
 
-2. 根据前面的数据，可知 1.21 单玩家袭击塔的极限效率在 21691.8/h（无骑士处理） 或 23060.1/h（有骑士处理，以下同理），绿宝石效率 7920/h 或 9000/h，红石效率 6750/h。
+2. Based on above data, 1.21 single player raid tower limit efficiency is 21691.8/h (no ravager handling) or 23060.1/h (with ravager handling, same below), emerald efficiency 7920/h or 9000/h, redstone efficiency 6750/h.
 
 
-## 2024-12-05 更新, MC 1.21.4
+## 2024-12-05 Update, MC 1.21.4
 
-总结一下 1.21.2 之后对袭击进行的改动：
+Summarizing changes to raids after 1.21.2:
 
-1. 袭击刷新区仍然是圆环，但是圆环的半径和圆心偏移量与袭击波次刷新计时（以下用变量 `t` 代称）相关，机制如下：
-   1. `t` 每个 gt 减少 1（倒计时），当 `t == 0` 时，刷新袭击队伍，且 `t` 只会被重置为 300
-   2. 由 `t` 得到一个缩放倍率 `s = 0.22 * t / 20 - 0.24`
-   3. 圆环半径为 `32 * s`，圆心相对于袭击中心在 xz 轴分别的随机偏移量为 `(0 ~ 2) * floor(s)`
+1. Raid spawn zone is still a ring, but ring radius and center offset relate to raid wave spawn timer (referred to as variable `t` below). Mechanism:
+   1. `t` decreases by 1 each gt (countdown). When `t == 0`, spawn raid party, and `t` only resets to 300
+   2. Get scaling factor from `t`: `s = 0.22 * t / 20 - 0.24`
+   3. Ring radius is `32 * s`, center random offset from raid center on xz axes is `(0 ~ 2) * floor(s)` each
 
-2. 每 gt 袭击会在圆环上随机选择刷新点若干次，并检查选中位置是否合适；
+2. Each gt raid randomly selects spawn points on ring several times and checks if selected position is suitable;
 
-3. 如果选中刷新位置不符合以下条件，则重选：
-   1. 与袭击中心 y 值差距大于 96
-   2. 选中位置是村庄区段且 `t > 140`
-   3. 当前位置不能刷怪且下方不是雪片，关于某方块是否可刷怪，参见 [wiki](https://zh.minecraft.wiki/?curid=7615#%E5%8F%AF%E7%94%9F%E6%88%90%E4%BD%8D%E7%BD%AE)
-   4. ……（其他不重要的条件，例如区块必须强加载）
+3. If selected spawn position doesn't meet following conditions, reselect:
+   1. Y difference from raid center greater than 96
+   2. Selected position is village section and `t > 140`
+   3. Current position can't spawn mobs and below isn't snow layer. For whether a block allows mob spawning, see [wiki](https://minecraft.wiki/w/Spawn#Spawn_conditions)
+   4. ... (other unimportant conditions, e.g., chunk must be force loaded)
 
-4. 在没有找到合适刷怪位置时，每个袭击每 gt 尝试寻找 8 次（1.21.2 前这里是 3 次），如果 `t == 0`，则尝试次数变为 20 × 6 次（1.21.2 前这里是 20 × 4 次）；
+4. When no suitable spawn position found, each raid tries 8 times per gt (was 3 before 1.21.2). If `t == 0`, attempts become 20 × 6 (was 20 × 4 before 1.21.2);
 
-5. 次级结论：袭击当前波次因为非死亡原因移出袭击时，接下来刷新的一波（只存在 `t = 0`）会在半径为 7~8 的圆环上。
+5. Secondary conclusion: When current raid wave is removed from raid for non-death reasons, the next wave spawned (only exists when `t = 0`) will be on a ring with radius 7~8.
 
-## 2024-12-29 更新, MC 1.21.4
+## 2024-12-29 Update, MC 1.21.4
 
-更正上方 `t = 0` 时的生成尝试次数。
+Corrected spawn attempt count when `t = 0` above.
 
-## 2025-04-01 更新, MC 1.21.5
+## 2025-04-01 Update, MC 1.21.5
 
-以下是对视频 [MC1.21.2~1.21.4简易自循环袭击塔](https://www.bilibili.com/video/BV1HHZhYGE7U/) 的简要分析：
+Following is brief analysis of video [MC1.21.2~1.21.4 Simple Self-Sustaining Raid Tower](https://www.bilibili.com/video/BV1HHZhYGE7U/):
 
-掠夺者队长掉落不详之瓶只要 96 格内不存在袭击即可，无关队长是否在袭击里；而捡旗帜补位的 AI 行为则需要袭击者确实在袭击中。
+Pillager captain dropping Ominous Bottle only requires no raid within 96 blocks, regardless of whether captain is in a raid; while the AI behavior of picking up banner to fill captain vacancy requires raider to actually be in a raid.
 
-上述特性应该从 1.21 开始都生效，具体分析见：[1.21.x 袭击者在 \[96, 112\) 区间内特殊表现的代码分析](../2025-04__1-21_captain_replace/)。
+Above features should apply since 1.21. For detailed analysis see: [Code Analysis of Special Raider Behavior in \[96, 112\) Range in 1.21.x](../2025-04__1-21_captain_replace/).
 
 
-## 2025-08-02 更新，部分（原）秘密特性补充
-### 2024-06-28 更新, MC 1.21
+## 2025-08-02 Update, Supplementing Some (Former) Secret Features
+### 2024-06-28 Update, MC 1.21
 
-不详之瓶无需玩家击杀掠夺者队长即可掉落，摔死/挤压/无源爆炸均可
+Ominous Bottle doesn't require player kill of pillager captain to drop. Fall damage/cramming/sourceless explosion all work.
 
-### 2024-07-06 更新, MC 1.21
+### 2024-07-06 Update, MC 1.21
 
-Bad Omen 触发为 Raid Omen, 以及 Raid Omen 转变为 Raid 时，会因为在迭代时增删集合而引发 `ConcurrentModificationException`。导致异常发生的那个 gt 后续的状态效果都不会更新。(Credit: Nickid2018, QWERTY770)
+Bad Omen triggering into Raid Omen, and Raid Omen converting to Raid, can cause `ConcurrentModificationException` due to adding/removing from collection during iteration. Status effects after the gt where exception occurs won't update. (Credit: Nickid2018, QWERTY770)
 
-### 2024-08-16 更新, MC 1.21.2 快照
+### 2024-08-16 Update, MC 1.21.2 Snapshot
 
-[MC-247440](https://bugs.mojang.com/browse/MC-247440) 在事实上已经被修复了，但是 Mojang 只把 [MC-195754](https://bugs.mojang.com/browse/MC-195754) 标记为了“已修复”，不清楚是忘了还是如何。现在 `raidToLeaderMap` 会在队长移出袭击的时候正确更新了。
+[MC-247440](https://bugs.mojang.com/browse/MC-247440) has been effectively fixed, but Mojang only marked [MC-195754](https://bugs.mojang.com/browse/MC-195754) as "Fixed," unclear if they forgot or what. Now `raidToLeaderMap` correctly updates when captain is removed from raid.
 
-那么，我曾经构想的借助地狱门传送走袭击队长，让袭击队员捡旗帜来制作队长存储的思路现在可以实现了（还因此产生了 [BV1DL4y1E7nH](https://www.bilibili.com/video/BV1DL4y1E7nH)），或许还能改进成更好的不详之瓶农场。
+Thus, my former idea of using Nether portal to teleport raid captain away, letting raid members pick up banner to create captain storage can now be implemented (which also led to [BV1DL4y1E7nH](https://www.bilibili.com/video/BV1DL4y1E7nH)), perhaps could be improved into a better Ominous Bottle farm.
 
-### 2025-07-24 更新, MC 1.21.5
+### 2025-07-24 Update, MC 1.21.5
 
-`ConcurrentModificationException` 在 1.21.5 之后的发生位置与 1.21 ~ 1.21.4 不同，因为 Mojang 修改了一部分状态效果系统的代码。当前版本，在玩家不带有 Raid Omen 但是带有 Bad Omen 的情况下，进入村庄区段会引发 `ConcurrentModificationException` 并导致 Bad Omen 当次移除失败。同样情况下，如果玩家带有 Raid Omen，则 Bad Omen 正常移除，不引发 `ConcurrentModificationException。`
+`ConcurrentModificationException` location after 1.21.5 differs from 1.21 ~ 1.21.4, because Mojang modified some status effect system code. Current version, when player doesn't have Raid Omen but has Bad Omen, entering village section triggers `ConcurrentModificationException` causing Bad Omen removal to fail that time. In same situation, if player has Raid Omen, Bad Omen removes normally without triggering `ConcurrentModificationException.`
 
-### 2025-08-01 更新, MC 1.21 ~ 1.21.4
+### 2025-08-01 Update, MC 1.21 ~ 1.21.4
 
-1. 1.21 ~ 1.21.4, `ConcurrentModificationException` 除了可以由前述袭击相关状态效果引发外，还可以由伤害吸收制造。具体做法是在伤害吸收效果结束前 1gt 耗尽伤害吸收血量，下个 gt 伤害吸收效果更新时会移除两次（效果耗尽 + 计时结束），代码执行过程中出现了先调用 `HashMap::remove()` 再调用 `Iterator::remove()`，后者执行过程中会因为集合结构被修改而抛出 `ConcurrentModificationException`。
+1. In 1.21 ~ 1.21.4, `ConcurrentModificationException` besides being triggered by aforementioned raid-related status effects, can also be created by Absorption. Specific method is depleting Absorption health 1gt before Absorption effect ends. Next gt when Absorption effect updates, it removes twice (effect depleted + timer ended). During code execution, `HashMap::remove()` is called first then `Iterator::remove()`, latter throws `ConcurrentModificationException` during execution because collection structure was modified.
 
-2. 生物（和玩家）身上拥有的状态效果由一个 `HashMap<Holder<MobEffect>, MobEffectInstance>` 存储，但是 Mojang 没有为 `Holder<MobEffect>` 实现 `hashcode()` 方法，且在计算并更新状态效果时直接使用迭代器遍历这个 hashmap。因此，生物的各个状态效果之间的计算顺序并不稳定，每次游戏进程重启、`HashMap` 扩容（扩容节点：状态效果数 12、24，原版状态效果总数不够到下一次扩容）等因素都会改变状态效果的计算顺序。该特性同样适用于 1.21.5 以后的版本，暂不清楚如何有意义地利用。
+2. Status effects on mobs (and players) are stored in a `HashMap<Holder<MobEffect>, MobEffectInstance>`, but Mojang didn't implement `hashcode()` method for `Holder<MobEffect>`, and uses iterator to traverse this hashmap directly when calculating and updating status effects. Therefore, calculation order between a mob's various status effects isn't stable. Factors like game process restart, `HashMap` expansion (expansion nodes: effect count 12, 24, vanilla total effects not enough for next expansion) all change status effect calculation order. This feature also applies to versions after 1.21.5, unclear how to meaningfully exploit it.

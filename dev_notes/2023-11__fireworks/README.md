@@ -1,5 +1,5 @@
-# 烟花掠夺稳定性测试
+# Firework Looting Stability Test
 
-## 文件内容
+## File Contents
 
-伤害间隔分析代码和通过服务器日志采集到的目标受伤时刻记录。
+Damage interval analysis code and target hit timing records collected through server logs.

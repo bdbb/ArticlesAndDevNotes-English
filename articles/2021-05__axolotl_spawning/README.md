@@ -1,6 +1,6 @@
-# 1.17 快照版本的美西螈刷新机制
+# Axolotl Spawning Mechanics in 1.17 Snapshot Versions
 
-原动态：
+Original posts:
 
 [1.17-pre1](https://www.bilibili.com/opus/529857513879858550)
 

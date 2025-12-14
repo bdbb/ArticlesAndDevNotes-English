@@ -1,52 +1,52 @@
-# 1.21 多人挂机袭击农场开发笔记
+# 1.21 Multiplayer AFK Raid Farm Development Notes
 
-## 参与人员
+## Participants
 
 - Youmiel
 
-## 开发动机
+## Development Motivation
 
-在 1.21 单人挂机的袭击农场整体完成后，我希望尝试一下能否将多人轮喝药挂机融合进现有的电路中，这样可以提升修建一座塔的资源回报。
+After the single-player AFK raid farm was completed overall in 1.21, I wanted to try whether multiplayer rotation potion-drinking AFK could be integrated into the existing circuits, which could improve the resource return from building one tower.
 
-## 构思（2024-08-10）
+## Concept (2024-08-10)
 
-在单人挂机的袭击塔中已经实现让玩家先喝药，等待足够时间后再移动玩家以准确触发袭击的逻辑，只要对现有结构加以拓展，应该就能增加提供不祥之兆玩家的数量，只要将这些玩家的挂机位置整合成一个模块即可方便地实现单人/多人挂机切换。
+The single-player AFK raid tower already implements logic for having players drink potions first, wait sufficient time, then move players to precisely trigger raids. By extending the existing structure, it should be possible to increase the number of players providing Bad Omen; just need to integrate these players' AFK positions into one module to conveniently switch between single/multiplayer AFK.
 
-### 难点：运行周期
+### Difficulty: Operation Cycle
 
-实测得知，单人挂机连续生成袭击的最短周期是 601gt 而非 600gt，这个数字不是 20gt 的整数倍，多次循环以后袭击塔与袭击刷怪间隔之间会发生“相位偏移”的现象，导致袭击在生成平台被遮挡时尝试刷出怪物，进而降低效率。
+Testing revealed that the shortest cycle for single-player AFK continuous raid generation is 601gt, not 600gt. This number isn't a multiple of 20gt; after multiple cycles, "phase drift" occurs between the raid tower and raid spawn interval, causing raids to attempt spawning mobs while the platform is blocked, thereby reducing efficiency.
 
-或许应该采用 610gt 或者 620gt 的运行周期以更好地对齐袭击刷怪间隔。
+Perhaps should adopt 610gt or 620gt operation cycles to better align with raid spawn intervals.
 
-对 610gt 和 620gt 进行分解质因数可得：
+Prime factorization of 610gt and 620gt:
 - 610gt = 2 * 5 * 61 gt
 - 620gt = 2 * 2 * 5 * 31 gt = 10 * 62 gt
 
-显然，对于比较器环 + 计数器的组合，620gt 更好做。
+Clearly, for comparator loop + counter combinations, 620gt is easier to make.
 
 
-## 开发日志（2024-08-11）
+## Development Log (2024-08-11)
 
-### 不祥之兆发生模块设计
+### Bad Omen Generation Module Design
 
-将玩家聚在一起容易出现的问题是互相抢物品，所以这个设计必须在保证紧凑的同时又让投掷器之间有一点距离。使用细雪减速投掷器投出的物品
+Gathering players together easily causes item-stealing issues, so this design must maintain some distance between droppers while ensuring compactness. Using powder snow to slow down items dispensed by droppers.
 
 ![2024-08-11_03.07.53](img/multiplayer_raid_farm/2024-08-11_03.07.53.png)
 
 ![2024-08-11_03.08.28](img/multiplayer_raid_farm/2024-08-11_03.08.28.png)
 
 
-## 开发日志（2024-08-13）
+## Development Log (2024-08-13)
 
-将不祥之兆发生模块接入袭击塔，驱动信号直接引自驱动刷怪平台的时钟。受限一个区块的宽度，只加了 11 个挂机位置，实际上加更多也不是问题。
+Connected the Bad Omen generation module to the raid tower; drive signal taken directly from the clock driving the spawn platform. Limited to one chunk width, only added 11 AFK positions; actually adding more isn't a problem.
 
 ![Alt text](img/multiplayer_raid_farm/2024-08-14_02.49.13.png)
 
-## 开发日志 (2024-09-09)
+## Development Log (2024-09-09)
 
-### 效率
+### Efficiency
 
-分为 11 玩家挂机和 11 + 1 玩家挂机的效率，即处死室中的玩家是否挂机的区别。
+Divided into 11-player AFK and 11+1 player AFK efficiency, i.e., the difference of whether the player in the kill chamber is AFK.
 
 ![11](./img/multiplayer_raid_farm/rate_1.png)
 
@@ -56,4 +56,4 @@
 <br>
 <br>
 
-1.21 多人挂机袭击农场开发笔记 © 2024 作者: Youmiel 采用 CC BY-NC-SA 4.0 许可。如需查看该许可证的副本，请访问 http://creativecommons.org/licenses/by-nc-sa/4.0/。
+1.21 Multiplayer AFK Raid Farm Development Notes © 2024 Author: Youmiel, licensed under CC BY-NC-SA 4.0. To view a copy of this license, visit http://creativecommons.org/licenses/by-nc-sa/4.0/.

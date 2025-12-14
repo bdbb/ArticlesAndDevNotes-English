@@ -1,42 +1,42 @@
-# 1.21.5+ 不祥之兆无限转化袭击之兆代码分析 —— 并发修改异常及其利用
+# 1.21.5+ Infinite Bad Omen to Raid Omen Conversion Code Analysis — ConcurrentModificationException and Its Exploitation
 
-**如果你需要与其他人谈论这个特性，我认为“无限转化袭击之兆”、“无限袭击之兆”、“无尽袭击之兆”、“infiniOmen”、“OmenInfinitum” 都是不错的名字**（credit: Ryan 100c, Lemon_Iced, 清云流烟）。
+**If you need to discuss this feature with others, I think "Infinite Raid Omen Conversion", "Infinite Raid Omen", "Endless Raid Omen", "infiniOmen", "OmenInfinitum" are all good names** (credit: Ryan 100c, Lemon_Iced, 清云流烟).
 
-据网友反馈，有一部分袭击农场的设计在 1.21.5 及以上使用时，不祥之兆转化为袭击之兆后并没有消失，在效果持续的 100 分钟内，每 30 秒即可免费制造一次袭击之兆。本文将对上述特性进行代码解释，并讨论相关原理的拓展应用。
+According to player feedback, some raid farm designs used in 1.21.5 and above exhibit a behavior where Bad Omen doesn't disappear after converting to Raid Omen, allowing free Raid Omen generation every 30 seconds for the 100-minute duration of the effect. This article will provide a code explanation of this feature and discuss extended applications of the related principles.
 
-在此特别感谢 Lemon_Iced, Nickid2018, s_yh 等人在研究过程中提供的帮助，排名不分先后。
+Special thanks to Lemon_Iced, Nickid2018, s_yh and others for their help during the research, listed in no particular order.
 
 
 ## TL;DR
 
-如果你对 Java 编程比较熟悉，以下是对该特性的简短解释：
+If you're familiar with Java programming, here's a brief explanation of this feature:
 
-在集合迭代时，不祥之兆的代码逻辑中修改了集合结构（添加袭击之兆），使得 hashmap 的迭代器在 `iterator.remove()` 的时候抛出 `ConcurrentModificationException` (并发修改异常)，没有成功移除不祥之兆效果。直到下一游戏刻，不祥之兆再次转换袭击之兆时才成功移除。
+During collection iteration, **Bad Omen's code logic modifies the collection structure** (adding Raid Omen), causing the hashmap's iterator to throw `ConcurrentModificationException` (CME) during `iterator.remove()`, **failing to remove the Bad Omen effect**. Not until the next game tick does Bad Omen successfully get removed when it converts to Raid Omen again.
 
-*注：`ConcurrentModificationException` 并不一定需要在多线程环境下触发，这个问题中的异常就完全是单线程环境下制造的。*
+*Note: `ConcurrentModificationException` doesn't necessarily require a multi-threaded environment to trigger; the exception in this problem is entirely created in a single-threaded environment.*
 
 
-## 目录
+## Table of Contents
 - [TL;DR](#tldr)
-- [〇、环境准备](#〇环境准备)
-- [一、前置知识：Minecraft 1.21.5 状态效果系统的总体介绍](#一前置知识minecraft-1215-状态效果系统的总体介绍)
-- [二、何为“并发修改异常”](#二何为并发修改异常)
-- [三、不祥之兆无限转化袭击之兆：并发修改异常最直接的利用](#三不祥之兆无限转化袭击之兆并发修改异常最直接的利用)
-- [四、猜测：为何该特性没有第一时间被发现，后续可能会如何修复](#四猜测为何该特性没有第一时间被发现后续可能会如何修复)
-- [五、1.21.5 前后 CME 触发情况差异](#五1215-前后-cme-触发情况差异)
-- [六、CME 跳过状态效果处理](#六cme-跳过状态效果处理)
+- [0. Environment Setup](#0-environment-setup)
+- [I. Prerequisite Knowledge: Overview of Minecraft 1.21.5 Status Effect System](#i-prerequisite-knowledge-overview-of-minecraft-1215-status-effect-system)
+- [II. What is "ConcurrentModificationException"](#ii-what-is-concurrentmodificationexception)
+- [III. Infinite Bad Omen to Raid Omen Conversion: The Most Direct Exploitation of CME](#iii-infinite-bad-omen-to-raid-omen-conversion-the-most-direct-exploitation-of-cme)
+- [IV. Speculation: Why This Feature Wasn't Discovered Immediately, and How It Might Be Fixed](#iv-speculation-why-this-feature-wasnt-discovered-immediately-and-how-it-might-be-fixed)
+- [V. Differences in CME Triggering Before and After 1.21.5](#v-differences-in-cme-triggering-before-and-after-1215)
+- [VI. CME Skipping Status Effect Processing](#vi-cme-skipping-status-effect-processing)
 
 
-## 〇、环境准备
+## 0. Environment Setup
 
-如果你还不知道从何处获取源码，但是希望对照本文自行理解的话，可以按照 [1.21.x 袭击者在 \[96, 112\) 区间内特殊表现的代码分析](../2025-04__1-21_captain_replace/2025-04-09__1-21_captain_replace.md) 中的步骤反编译游戏源码。
+If you don't know where to obtain the source code but wish to follow along with this article, you can follow the steps in [Code Analysis of Special Raider Behavior in \[96, 112\) Range in 1.21.x](../2025-04__1-21_captain_replace/2025-04-09__1-21_captain_replace.md) to decompile the game source code.
 
-本文的讲解基于 Minecraft 1.21 和 1.21.5 版本，使用 Yarn 反混淆表。
+This article's explanation is based on Minecraft versions 1.21 and 1.21.5, using Yarn deobfuscation mapping.
 
 
-## 一、前置知识：Minecraft 1.21.5 状态效果系统的总体介绍
+## I. Prerequisite Knowledge: Overview of Minecraft 1.21.5 Status Effect System
 
-生物状态效果的计算在 `LivingEntity::baseTick()` 的末尾，名为 `LivingEntity::tickStatusEffects()`。以下是该方法的主要代码，作为参考。
+Mob status effect calculation is at the end of `LivingEntity::baseTick()`, named `LivingEntity::tickStatusEffects()`. Below is the main code of this method for reference.
 
 ```java
 public abstract class LivingEntity extends Entity
@@ -50,15 +50,15 @@ implements Attackable, ServerWaypoint {
         if (world instanceof ServerWorld) {
             ServerWorld lv = (ServerWorld)world;
             Iterator<Object> iterator = this.activeStatusEffects.keySet().iterator();
-            // activeStatusEffects 是一个 hashmap, 将状态效果注册项目和生物带有的状态效果实例联系起来
-            // 瞬时的状态效果不会加入，例如 瞬间伤害 和 瞬间治疗
+            // activeStatusEffects is a hashmap linking status effect registry entries to status effect instances on the mob
+            // Instant effects are not added, such as Instant Damage and Instant Health
             try {
                 while (iterator.hasNext()) {
                     RegistryEntry lv2 = (RegistryEntry)iterator.next();
                     StatusEffectInstance lv3 = this.activeStatusEffects.get(lv2);
                     if (!lv3.update(lv, this, () -> this.onStatusEffectUpgraded(lv3, true, null))) {
-                        // ↑ 逐个更新状态效果实例
-                        iterator.remove();         // update 方法返回 false 的情况下，调用迭代器的 remove() 方法移除这个效果
+                        // ^ Update each status effect instance
+                        iterator.remove();         // When update method returns false, call iterator's remove() method to remove this effect
                         this.onStatusEffectsRemoved(List.of(lv3));
                         continue;
                     }
@@ -66,81 +66,81 @@ implements Attackable, ServerWaypoint {
                     this.onStatusEffectUpgraded(lv3, false, null);
                 }
             } catch (ConcurrentModificationException lv2) {
-                // 捕获了 ConcurrentModificationException，但是没做任何处理
-                // 这个异常是本文的主角 
+                // Caught ConcurrentModificationException, but does nothing
+                // This exception is the protagonist of this article
             }
             /* ... */
-            // 其他代码，不是重点，略
+            // Other code, not the focus, omitted
         } else {
             /* ... */
-            // 客户端侧的逻辑，不是重点，略
+            // Client-side logic, not the focus, omitted
         }
     }
 }
 ```
 
-对于状态效果实例，以上代码中调用到了 `StatusEffectInstance::update()`，它的内容如下：
+For status effect instances, the above code calls `StatusEffectInstance::update()`, whose contents are as follows:
 
 ```java
 public class StatusEffectInstance implements Comparable<StatusEffectInstance> {
     public boolean update(ServerWorld world, LivingEntity entity, Runnable hiddenEffectCallback) {
         int i;
-        if (!this.isActive()) {  // 判断本状态效果是否为无限长或者剩余时长大于零，否，则不处理后续逻辑
+        if (!this.isActive()) {  // Check if this status effect is infinite or has remaining duration > 0, otherwise don't process subsequent logic
             return false;
         }
         int n = i = this.isInfinite() ? entity.age : this.duration;
-        if (this.type.value().canApplyUpdateEffect(i, this.amplifier) && 
+        if (this.type.value().canApplyUpdateEffect(i, this.amplifier) &&
                 !this.type.value().applyUpdateEffect(world, entity, this.amplifier)) {
-            // ↑ 检查当前游戏刻本状态效果实例是否需要处理
-            // 是，则调用 applyUpdateEffect() 处理状态效果，大多数状态效果的实现都写在这一方法中
+            // ^ Check if this status effect instance needs processing this game tick
+            // If yes, call applyUpdateEffect() to process the status effect, most status effect implementations are written in this method
             return false;
-            // 若本实例在当前游戏刻需要处理，且 applyUpdateEffect() 返回 false，则返回 false
-            // 到 tickStatusEffects() 中，会执行移除当前状态效果实例的代码
+            // If this instance needs processing this game tick, and applyUpdateEffect() returns false, then return false
+            // In tickStatusEffects(), code to remove current status effect instance will execute
         }
-        this.updateDuration();   // 将状态效果的剩余时长减 1，也就是先计算，再减少计时
+        this.updateDuration();   // Decrease status effect remaining duration by 1, i.e., calculate first then decrement timer
         if (this.tickHiddenEffect()) {
-            hiddenEffectCallback.run();  
-            // 处理隐藏的状态效果，例如同时具有 “长时间、低等级” 和 “短时间、高等级” 的同 ID 状态效果
+            hiddenEffectCallback.run();
+            // Handle hidden status effects, e.g., having both "long duration, low level" and "short duration, high level" of same effect ID
         }
-        return this.isActive();   // 同前述，即通过剩余时长控制是否清除当前效果
+        return this.isActive();   // Same as above, i.e., control whether to clear current effect via remaining duration
     }
 }
 ```
 
 
-## 二、何为“并发修改异常”
+## II. What is "ConcurrentModificationException"
 
-ConcurrentModificationException (并发修改异常，以下简称 CME) 是 Java 中的一个运行时异常，通常在对集合进行迭代的过程中修改了集合结构时（例如，增删元素）抛出。如果希望全面了解 CME 的触发原理和场景，请阅读 [java - Why is a ConcurrentModificationException thrown and how to debug it - Stack Overflow](https://stackoverflow.com/questions/602636/why-is-a-concurrentmodificationexception-thrown-and-how-to-debug-it)，本文只在此章节列出必要的几项。
+ConcurrentModificationException (hereinafter CME) is a runtime exception in Java, usually thrown when modifying the collection structure (e.g., adding/removing elements) while iterating over a collection. For a comprehensive understanding of CME triggering principles and scenarios, please read [java - Why is a ConcurrentModificationException thrown and how to debug it - Stack Overflow](https://stackoverflow.com/questions/602636/why-is-a-concurrentmodificationexception-thrown-and-how-to-debug-it). This article only lists the necessary items in this section.
 
-### 为什么需要“并发修改异常”
+### Why "ConcurrentModificationException" is Needed
 
-假如没有这个异常，在集合迭代时修改集合很容易造成难以排查的问题。例如以下 JavaScript 代码：
+Without this exception, modifying a collection during iteration could easily cause hard-to-debug problems. For example, the following JavaScript code:
 
 ```javascript
 let arr = [1, 2, 3];
 for (let i of arr) {
-    arr.push(4); // 每次循环，向数组末尾加入元素“4”。不抛异常，但可能无限循环或逻辑错误
+    arr.push(4); // Each loop iteration adds element "4" to the array end. No exception thrown, but may cause infinite loop or logic errors
 }
 ```
 
-在 NodeJS 环境下，执行该代码会导致无限循环，而程序员不一定注意到这个循环编写得有问题。
+In a NodeJS environment, executing this code causes an infinite loop, and programmers might not notice the loop is written incorrectly.
 
-### 触发场景
+### Triggering Scenarios
 
-`livingEntity.activeStatusEffect` 是一个 HashMap，对于 HashMap，有以下两种场景会触发 CME：
+`livingEntity.activeStatusEffect` is a HashMap. For HashMap, there are two scenarios that trigger CME:
 
-1. **在增强型 for 循环中 / Iterator 遍历中直接用集合方法修改集合** <br>
-增强型 for 循环（如 `for (T item : map.keySet())`）本质上还是使用 Iterator 遍历集合，如果在遍历过程中使用 `map.put(key, value)` 或 `map.remove(key)` 增删了元素，会在下次调用 `iterator.next()` 或 `iterator.remove()` 时触发异常。
+1. **Directly modifying collection with collection methods during enhanced for loop / Iterator traversal** <br>
+Enhanced for loops (like `for (T item : map.keySet())`) essentially still use Iterator to traverse collections. If `map.put(key, value)` or `map.remove(key)` adds/removes elements during traversal, it triggers an exception on the next call to `iterator.next()` or `iterator.remove()`.
 
-1. **在多线程环境中使用 fail-fast 的非线程安全集合（如 HashMap、ArrayList）进行并发修改** <br>
-因为 Minecraft 的主要游戏逻辑是单线程处理的，状态效果逻辑并不涉及并发修改的问题。
+2. **Using fail-fast non-thread-safe collections (like HashMap, ArrayList) for concurrent modification in multi-threaded environments** <br>
+Since Minecraft's main game logic is single-threaded, status effect logic doesn't involve concurrent modification issues.
 
 
-## 三、不祥之兆无限转化袭击之兆：并发修改异常最直接的利用
+## III. Infinite Bad Omen to Raid Omen Conversion: The Most Direct Exploitation of CME
 
-### 原理
+### Principle
 
-且看不祥之兆的实现代码：
+Let's look at Bad Omen's implementation code:
 
 ```java
 class BadOmenStatusEffect extends StatusEffect {
@@ -150,124 +150,124 @@ class BadOmenStatusEffect extends StatusEffect {
 
     @Override
     public boolean canApplyUpdateEffect(int duration, int amplifier) {
-        return true;    // 每个游戏刻都需要执行 applyUpdateEffect()
+        return true;    // Every game tick needs to execute applyUpdateEffect()
     }
 
     @Override
     public boolean applyUpdateEffect(ServerWorld world, LivingEntity entity, int amplifier) {
         Raid lv2;
         ServerPlayerEntity lv;
-        if (entity instanceof ServerPlayerEntity 
+        if (entity instanceof ServerPlayerEntity
                 && !(lv = (ServerPlayerEntity) entity).isSpectator()
-                && world.getDifficulty() != Difficulty.PEACEFUL 
+                && world.getDifficulty() != Difficulty.PEACEFUL
                 && world.isNearOccupiedPointOfInterest(lv.getBlockPos())
                 && ((lv2 = world.getRaidAt(lv.getBlockPos())) == null
                         || lv2.getBadOmenLevel() < lv2.getMaxAcceptableBadOmenLevel())) {
-            // ↑ 添加袭击之兆的条件判断
+            // ^ Condition check for adding Raid Omen
             lv.addStatusEffect(new StatusEffectInstance(StatusEffects.RAID_OMEN, 600, amplifier));
-            // ↑ 此处添加了袭击之兆
+            // ^ Here Raid Omen is added
             lv.setStartRaidPos(lv.getBlockPos());
-            return false;    // 此处返回了 false
+            return false;    // Here returns false
         }
         return true;
     }
 }
 ```
 
-`BadOmenStatusEffect::applyUpdateEffect()` 在满足了袭击之兆添加条件后，会在添加袭击之兆之后返回 `false`。结合前面的代码描述，`StatusEffectInstance::update()` 也返回 `false`，到 `LivingEntity::tickStatusEffects()` 会调用 `iterator.remove()`。因为前面添加袭击之兆后 `activeStatusEffect` 的元素数量改变，后续 `iterator.remove()` 抛出 CME，且未能移除不祥之兆。
+`BadOmenStatusEffect::applyUpdateEffect()` returns `false` after adding Raid Omen when conditions are met. Combined with the code description earlier, `StatusEffectInstance::update()` also returns `false`, and in `LivingEntity::tickStatusEffects()` it calls `iterator.remove()`. Because adding Raid Omen earlier changed the element count of `activeStatusEffect`, the subsequent `iterator.remove()` throws CME and fails to remove Bad Omen.
 
-假如下一游戏刻，袭击之兆的添加条件仍然满足，那么代码执行情况同上，但是 `activeStatusEffect` 中已有袭击之兆，再次添加不会改变元素数量，后续 `iterator.remove()` 正常移除不祥之兆，不抛出 CME。
+If on the next game tick, Raid Omen addition conditions are still met, code execution is the same as above, but `activeStatusEffect` already has Raid Omen, so adding again doesn't change element count, and subsequent `iterator.remove()` normally removes Bad Omen without throwing CME.
 
-以上就是不祥之兆无限转化袭击之兆的原理，对应到袭击农场的设计上，就是让玩家每次获取袭击之兆时只满足袭击之兆添加条件 1 游戏刻。Lemon_Iced 的袭击农场使用了可控 POI 认领技术，并且恰好只让村庄区段存在了 1 游戏刻，所以出现无限转化袭击之兆的现象；如果村庄区段保持存在，让玩家只在村庄区段中停留 1 游戏刻同样能达到效果。需要注意的是，在获取袭击之兆后、袭击之兆未转化成袭击前，玩家不能再次进入村庄区段，否则不祥之兆也会被移除。
+The above is the principle of infinite Bad Omen to Raid Omen conversion. Applied to raid farm design, this means having players meet Raid Omen addition conditions for only 1 game tick each time they acquire Raid Omen. Lemon_Iced's raid farm uses controllable POI claiming technology, and happens to make the village section exist for only 1 game tick, hence the infinite Raid Omen conversion phenomenon; if the village section persists, having players stay in the village section for only 1 game tick can also achieve the effect. Note that after acquiring Raid Omen, before Raid Omen converts to a raid, players cannot re-enter the village section, otherwise Bad Omen will also be removed.
 
-### 时序影响
+### Timing Effects
 
-为表述清晰，以下使用“常规触发”指代常见的、玩家获得袭击之兆时处于村庄区段内的时长大于 1 游戏刻的效果获取方式；用“无限触发”指代前述玩家仅处于村庄区段内 1 游戏刻的袭击之兆效果无限获取方式。
+For clarity, the following uses "normal trigger" to refer to the common method where players have Raid Omen while staying in a village section for more than 1 game tick; "infinite trigger" refers to the aforementioned method where players stay in the village section for only 1 game tick for infinite Raid Omen effect acquisition.
 
-对于常规触发的设计，最小触发周期不确定，存在两种结果，确切地来说，取决于不祥之兆和袭击之兆在同一游戏刻内的运算顺序，而这个运算顺序不是绝对确定的。阅读前面的代码，可以发现 `livingEntity.activeStatusEffect` 是 `HashMap<RegistryEntry<StatusEffect>, StatusEffectInstance>` 类型，并且 Mojang 没有为 `RegistryEntry.Reference<T>` (注册项目的引用，`RegistryEntry<T>` 接口的实现) 实现 `hashCode()` 方法。这意味着每次程序启动，同样的一组状态效果会有不同的遍历顺序，而集合扩容（触发 rehash）也会进一步影响它们的遍历顺序。
+For normal trigger designs, the minimum trigger period is uncertain with two possible outcomes, specifically depending on the calculation order between Bad Omen and Raid Omen within the same game tick, and this calculation order isn't absolutely determined. Reading the code earlier, we can see `livingEntity.activeStatusEffect` is type `HashMap<RegistryEntry<StatusEffect>, StatusEffectInstance>`, and Mojang didn't implement `hashCode()` for `RegistryEntry.Reference<T>` (registry entry reference, implementation of `RegistryEntry<T>` interface). This means each program startup, the same set of status effects will have different traversal orders, and collection expansion (triggering rehash) will further affect their traversal order.
 
-以上分析可以使用 mod 验证，mixin 插入点选择一个注册项目初始化完毕的位置，构造一个同样类型的 `HashMap`，将状态效果存入 map 再输出遍历结果，即可验证。
+The above analysis can be verified with a mod; choose a mixin injection point where registry entries are initialized, construct a HashMap of the same type, store status effects in the map and output traversal results to verify.
 
-#### 常规触发，如果不祥之兆先于袭击之兆
+#### Normal trigger, if Bad Omen is calculated before Raid Omen
 
-剩余时间指 `StatusEffect::canApplyUpdateEffect()` 被调用时的效果剩余时间，后面同理。
+Remaining time refers to the effect remaining time when `StatusEffect::canApplyUpdateEffect()` is called, same below.
 
-- GT 0: 不详之兆添加袭击之兆，触发 CME，中断遍历；袭击之兆不计算
-- GT 1: 不详之兆再次添加袭击之兆，移除自身；袭击之兆计算，剩余时间 600 gt
-- GT 2: 袭击之兆剩余时间 599 gt
-- ... 
-- ... (某个时间点，玩家获得不祥之兆)
-- ... 
-- GT 600: 袭击之兆剩余时间 1 gt，开始袭击事件，移除自身
-- GT 601: 不祥之兆可以再次添加袭击之兆
+- GT 0: Bad Omen adds Raid Omen, triggers CME, interrupts traversal; Raid Omen not calculated
+- GT 1: Bad Omen adds Raid Omen again, removes itself; Raid Omen calculated, remaining time 600 gt
+- GT 2: Raid Omen remaining time 599 gt
+- ...
+- ... (at some point, player obtains Bad Omen)
+- ...
+- GT 600: Raid Omen remaining time 1 gt, starts raid event, removes itself
+- GT 601: Bad Omen can add Raid Omen again
 
-最小袭击生成周期 601 gt。
+Minimum raid generation period 601 gt.
 
-#### 常规触发，如果袭击之兆先于不祥之兆
+#### Normal trigger, if Raid Omen is calculated before Bad Omen
 
-- GT 0: 不详之兆添加袭击之兆，触发 CME，中断遍历；袭击之兆不计算
-- GT 1: 袭击之兆计算，剩余时间 600 gt（计算结束后减为 599 gt）；不详之兆再次添加袭击之兆，移除自身，将袭击之兆剩余时间刷新为 600 gt
-- GT 2: 袭击之兆剩余时间 600 gt
-- GT 3: 袭击之兆剩余时间 599 gt
-- ... 
-- ... (某个时间点，玩家获得不祥之兆)
-- ... 
-- GT 601: 袭击之兆剩余时间 1 gt，开始袭击事件，移除自身
-- GT 602: 不祥之兆可以再次添加袭击之兆
+- GT 0: Bad Omen adds Raid Omen, triggers CME, interrupts traversal; Raid Omen not calculated
+- GT 1: Raid Omen calculated, remaining time 600 gt (decreases to 599 gt after calculation); Bad Omen adds Raid Omen again, removes itself, refreshes Raid Omen remaining time to 600 gt
+- GT 2: Raid Omen remaining time 600 gt
+- GT 3: Raid Omen remaining time 599 gt
+- ...
+- ... (at some point, player obtains Bad Omen)
+- ...
+- GT 601: Raid Omen remaining time 1 gt, starts raid event, removes itself
+- GT 602: Bad Omen can add Raid Omen again
 
-最小袭击生成周期 602 gt。
+Minimum raid generation period 602 gt.
 
-#### 无限触发
+#### Infinite trigger
 
-- GT 0: 不详之兆添加袭击之兆，触发 CME，中断遍历；袭击之兆不计算
-- GT 1: 袭击之兆剩余时间 600 gt
-- GT 2: 袭击之兆剩余时间 599 gt
-- ... 
-- ... 
-- GT 600: 袭击之兆剩余时间 1 gt，开始袭击事件，移除自身
-- GT 601: 不祥之兆可以再次添加袭击之兆
+- GT 0: Bad Omen adds Raid Omen, triggers CME, interrupts traversal; Raid Omen not calculated
+- GT 1: Raid Omen remaining time 600 gt
+- GT 2: Raid Omen remaining time 599 gt
+- ...
+- ...
+- GT 600: Raid Omen remaining time 1 gt, starts raid event, removes itself
+- GT 601: Bad Omen can add Raid Omen again
 
-最小袭击生成周期 601 gt。
+Minimum raid generation period 601 gt.
 
-#### 真玩家、假玩家的区别
+#### Differences between real players and fake players
 
-[堆叠袭击塔对真人适用程度分类](../2024-02__raid_explaination/2024-02-02__categories.md) 中对真假玩家状态效果计算阶段差异的描述仍然有效。
-
-
-## 四、猜测：为何该特性没有第一时间被发现，后续可能会如何修复
-
-### 为何 Mojang 和玩家社区之前都没有发现这个问题
-
-#### 1. 触发条件苛刻
-
-无限转化袭击之兆要求玩家仅在村庄区段停留 1 游戏刻，除非特意构造（使用红石电路控制、`/tick rate 1` 下精细操作、开发环境下断点再移动玩家等），人工操作很难做到停留 1 游戏刻，即使是 `/tick freeze` 也不能阻止玩家的状态效果继续计算。常规的触发方式也只是有概率让袭击之兆的结束时间延后 1 游戏刻，仅凭肉眼观察很难注意到。 
-
-#### 2. Mojang 程序开发时纪律性不足
-
-回想一下，有很多莫名其妙的问题都来源于 Mojang 开发时不讲章法，例如：
-1. [依赖于维度的随机的红石](https://www.bilibili.com/video/BV1Gv411t7sb?p=1)：原因是 Mojang 使用了 hashmap 来储存三个维度，却没给维度实现 `hashCode` 方法
-2. [Minecraft 1.18.2+ 中地狱堡垒的地狱砖刷怪游走问题](https://blog.fallenbreath.me/zh-CN/2024/fortress-nether-bricks-pack-spawning-issue-1182/#more)：原因是 Mojang 没有给 `SpawnEntry` 实现 `equals` 方法，这一问题遗留了近三年才被发现并意外修复。
-
-这一次，Mojang 犯的低级错误至少有：
-- 在集合迭代时直接增加元素数量
-- 捕获异常之后什么都不做
-- 没有给 `RegistryEntry.Reference<T>` 实现 `hashCode()` 方法
-- 使用 `HashMap` 这种遍历顺序不稳定的数据结构，导致问题有概率被微时序掩盖
-
-### Mojang 可能会如何修复
-
-除了补全未实现的方法、更换更合适的数据结构以外，最核心的问题是在状态效果集合迭代时添加了新的状态效果，而现有状态效果系统并没有考虑到这样特殊的用法。解决办法是避免在遍历集合时添加新的状态效果（我看把不祥之兆改成直接生成袭击就挺好的，对吧 `:P`），或者干脆为了这个需求重构一下状态效果系统。
-
-至于何时修复，要看这个特性什么时候传到 Mojang，或者 Mojang 哪天心血来潮随机重构一下状态效果的代码然后说不定就修复了。
+The description in [Classification of Stacking Raid Tower Applicability for Real Players](../2024-02__raid_explaination/2024-02-02__categories.md) regarding the phase difference in status effect calculation between real and fake players is still valid.
 
 
-## 五、1.21.5 前后 CME 触发情况差异
+## IV. Speculation: Why This Feature Wasn't Discovered Immediately, and How It Might Be Fixed
 
-其实 25w02a 时 Mojang 已经有意识地在避免药水效果代码引发 CME，并修改了一部分状态效果的处理逻辑。接下来我将说明 1.21 ~ 1.21.4 版本的状态效果逻辑与 1.21.5 后的版本有什么区别，以及如何触发 CME。
+### Why Neither Mojang Nor the Player Community Previously Discovered This Issue
 
-### 1.21 状态效果代码
+#### 1. Stringent trigger conditions
 
-首先是 `LivingEntity::tickStatusEffect()`，它的相关代码基本没有变化。
+Infinite Raid Omen conversion requires players to stay in the village section for only 1 game tick. Unless specifically constructed (using redstone circuits for control, fine operation under `/tick rate 1`, moving players at breakpoints in development environment, etc.), manual operation can hardly achieve 1 game tick stays. Even `/tick freeze` can't stop player status effects from continuing to calculate. Normal triggering methods only have a chance to delay Raid Omen end time by 1 game tick, which is hard to notice by eye alone.
+
+#### 2. Mojang's lack of discipline during program development
+
+Think about it—many inexplicable issues originate from Mojang's undisciplined development, for example:
+1. [Dimension-dependent random redstone](https://www.bilibili.com/video/BV1Gv411t7sb?p=1): caused by Mojang using hashmap to store three dimensions but not implementing `hashCode` for dimensions
+2. [Nether Fortress Nether Brick Mob Spawning Wander Issue in Minecraft 1.18.2+](https://blog.fallenbreath.me/2024/fortress-nether-bricks-pack-spawning-issue-1182/#more): caused by Mojang not implementing `equals` for `SpawnEntry`, this issue lingered for nearly three years before being discovered and accidentally fixed.
+
+This time, Mojang's amateur mistakes include at least:
+- Directly increasing element count during collection iteration
+- Catching an exception and doing nothing
+- Not implementing `hashCode()` for `RegistryEntry.Reference<T>`
+- Using `HashMap`, a data structure with unstable traversal order, causing issues to be probabilistically masked by micro-timing
+
+### How Mojang Might Fix This
+
+Besides completing unimplemented methods and switching to more suitable data structures, the core issue is adding new status effects during status effect collection iteration, and the existing status effect system didn't consider such special usage. The solution is to avoid adding new status effects while iterating the collection (I think changing Bad Omen to directly generate raids would be great, right? `:P`), or simply refactor the status effect system for this requirement.
+
+As for when it will be fixed, it depends on when this feature reaches Mojang, or when Mojang on a whim randomly refactors status effect code and maybe fixes it.
+
+
+## V. Differences in CME Triggering Before and After 1.21.5
+
+Actually, by 25w02a, Mojang was already consciously avoiding potion effect code triggering CME and modified some status effect processing logic. Next I'll explain what's different between status effect logic in versions 1.21 ~ 1.21.4 and versions after 1.21.5, and how to trigger CME.
+
+### 1.21 Status Effect Code
+
+First is `LivingEntity::tickStatusEffect()`, whose relevant code has basically not changed.
 
 ```java
 protected void tickStatusEffects() {
@@ -278,9 +278,9 @@ protected void tickStatusEffects() {
             RegistryEntry<StatusEffect> lv = iterator.next();
             StatusEffectInstance lv2 = this.activeStatusEffects.get(lv);
             if (!lv2.update(this, () -> this.onStatusEffectUpgraded(lv2, true, null))) {
-                // 遍历方式没变
+                // Traversal method unchanged
                 if (this.getWorld().isClient) continue;
-                iterator.remove();   // 移除方式没变 
+                iterator.remove();   // Removal method unchanged
                 this.onStatusEffectRemoved(lv2);
                 continue;
             }
@@ -288,99 +288,99 @@ protected void tickStatusEffects() {
             this.onStatusEffectUpgraded(lv2, false, null);
         }
     } catch (ConcurrentModificationException lv) {
-        // 捕获了 ConcurrentModificationException，但是没做任何处理
+        // Caught ConcurrentModificationException, but does nothing
     }
     /* ... */
-    // 其他代码，不是重点，略
+    // Other code, not the focus, omitted
 }
 ```
 
-然后是 `StatusEffectInstance::update()`
+Then `StatusEffectInstance::update()`
 
 ```java
 public boolean update(LivingEntity entity, Runnable overwriteCallback) {
     if (this.isActive()) {
         int i;
         int n = i = this.isInfinite() ? entity.age : this.duration;
-        if (this.type.value().canApplyUpdateEffect(i, this.amplifier) 
+        if (this.type.value().canApplyUpdateEffect(i, this.amplifier)
                 && !this.type.value().applyUpdateEffect(entity, this.amplifier)) {
             entity.removeStatusEffect(this.type);
-            // applyUpdateEffect() 返回 false 后，不像 1.21.5 那样继续向外返回 false，而是当场移除效果
-            // 内部实现使用的是 map.remove(item)，不会抛出 CME
-            // 但是会使得后续调用 iterator.next() 等方法抛出 CME
-            // 由于没有直接 return，后续逻辑仍然执行（持续时间减一、处理隐藏效果等）
+            // After applyUpdateEffect() returns false, unlike 1.21.5 which continues returning false outward, it removes the effect on the spot
+            // Internal implementation uses map.remove(item), won't throw CME
+            // But will cause subsequent calls to iterator.next() etc. to throw CME
+            // Since there's no direct return, subsequent logic still executes (duration decrease, hidden effect handling, etc.)
         }
-        this.updateDuration();    // 先计算，再倒计时，没变
+        this.updateDuration();    // Calculate first then countdown, unchanged
         if (this.duration == 0 && this.hiddenEffect != null) {
-            // 处理隐藏的状态效果
+            // Handle hidden status effects
             this.copyFrom(this.hiddenEffect);
             this.hiddenEffect = this.hiddenEffect.hiddenEffect;
             overwriteCallback.run();
         }
     }
     this.fading.update(this);
-    return this.isActive();    // 相比 1.21.5，只有一处返回位置
+    return this.isActive();    // Compared to 1.21.5, only one return location
 }
 ```
 
-### 1.21 ~ 1.21.4 制造 CME 方法分析
+### 1.21 ~ 1.21.4 CME Creation Method Analysis
 
-可以发现，1.21 的状态效果处理逻辑不会在添加袭击之兆的时候调用 `iterator.remove()` 而抛出 CME，导致不祥之兆移除失败。不过我们依然可以尝试在 `iterator.next()` 或 `iterator.remove()` 调用前增删状态效果从而抛出 CME。
+We can see 1.21's status effect processing logic won't call `iterator.remove()` when adding Raid Omen and throw CME, causing Bad Omen removal failure. However, we can still try to add/remove status effects before `iterator.next()` or `iterator.remove()` calls to throw CME.
 
-增删方式总共有两种：
-1. 不祥之兆中符合触发条件添加袭击之兆
-2. 尝试让 `applyUpdateEffect()` 返回 `false`，从而移除自身，目前只有不祥之兆添加袭击之兆时、袭击之兆生成袭击时、伤害吸收耗尽黄心时会返回 `false`
+There are two methods for adding/removing:
+1. Bad Omen adds Raid Omen when trigger conditions are met
+2. Try to make `applyUpdateEffect()` return `false` to remove itself; currently only Bad Omen adding Raid Omen, Raid Omen generating raid, and Absorption depleting yellow hearts return `false`
 
-可以抛出 CME 的位置有两处：
-1. `iterator.next()`：如果发生增删的效果不是最后一个，在迭代到下一个效果时调用
-2. `iterator.remove()`：只有在状态效果持续时间结束时调用
+There are two locations that can throw CME:
+1. `iterator.next()`: If the effect that was added/removed isn't the last one, called when iterating to the next effect
+2. `iterator.remove()`: Only called when status effect duration ends
 
-排列组合可以得到如下几种制造 CME 的方式：
-1. 袭击之兆生成袭击时固定触发。触发位置 `iterator.remove()`
-2. 不祥之兆添加袭击之兆或伤害吸收耗尽黄心，且还有状态效果未迭代时。触发位置 `iterator.next()`
-3. 伤害吸收耗尽黄心，同时持续时间结束。触发位置 `iterator.remove()`
+Combining these yields the following CME creation methods:
+1. Fixed trigger when Raid Omen generates raid. Trigger location `iterator.remove()`
+2. Bad Omen adds Raid Omen or Absorption depletes yellow hearts, and there are still effects not yet iterated. Trigger location `iterator.next()`
+3. Absorption depletes yellow hearts while duration ends simultaneously. Trigger location `iterator.remove()`
 
-由于[【三】](#时序影响)中所述状态效果迭代顺序的不确定性，`2.`提及的 CME 触发方式不稳定。
+Due to the uncertainty in status effect iteration order mentioned in [Section III](#timing-effects), CME triggering method `2.` is unstable.
 
 
-## 六、CME 跳过状态效果处理
+## VI. CME Skipping Status Effect Processing
 
-CME 触发时，本游戏刻处理该玩家状态效果的循环会直接中断，未遍历到的状态效果不仅持续时间没有减少，该有的效果也没有产生，也就是跳过了一个游戏刻的处理。
+When CME triggers, the loop processing that player's status effects this game tick directly interrupts; effects not yet iterated not only don't have duration decreased, the effects they should have produced also don't occur—essentially skipping one game tick of processing.
 
-对于不祥之兆在 1.21.5 及以上版本的表现，因为添加袭击之兆后，该分支只是 `return false`，并不会让持续时间减少，所以利用无限触发特性，还能一定程度上延长不祥之兆的持续时间。
+For Bad Omen's behavior in versions 1.21.5 and above, because after adding Raid Omen, that branch only does `return false` and doesn't decrease duration, using the infinite trigger feature can also extend Bad Omen duration to some extent.
 
-### 1.21 ~ 1.21.4 CME 对袭击农场的时序影响
+### 1.21 ~ 1.21.4 CME Timing Effects on Raid Farms
 
-#### 不祥之兆先于袭击之兆计算
+#### Bad Omen calculated before Raid Omen
 
-- GT 0: 不祥之兆符合转化条件，添加袭击之兆，移除不祥之兆，触发 CME 与否不影响
-- GT 1: 袭击之兆剩余时间 600 gt
-- GT 2: 袭击之兆剩余时间 599 gt
+- GT 0: Bad Omen meets conversion conditions, adds Raid Omen, removes Bad Omen, whether CME triggers doesn't matter
+- GT 1: Raid Omen remaining time 600 gt
+- GT 2: Raid Omen remaining time 599 gt
 - ...
-- ...(某个时间点，玩家获得不祥之兆)
+- ...(at some point, player obtains Bad Omen)
 - ...
-- GT 600: 袭击之兆剩余时间 1 gt，开始袭击事件，移除自身
-- GT 601: 不祥之兆符合转化条件，添加袭击之兆...
+- GT 600: Raid Omen remaining time 1 gt, starts raid event, removes itself
+- GT 601: Bad Omen meets conversion conditions, adds Raid Omen...
 
-最小袭击生成周期 601 gt。
+Minimum raid generation period 601 gt.
 
-#### 袭击之兆先于不祥之兆计算
+#### Raid Omen calculated before Bad Omen
 
-- GT 0: 不祥之兆符合转化条件，添加袭击之兆，移除不祥之兆，触发 CME 与否不影响
-- GT 1: 袭击之兆剩余时间 600 gt
-- GT 2: 袭击之兆剩余时间 599 gt
+- GT 0: Bad Omen meets conversion conditions, adds Raid Omen, removes Bad Omen, whether CME triggers doesn't matter
+- GT 1: Raid Omen remaining time 600 gt
+- GT 2: Raid Omen remaining time 599 gt
 - ...
-- ...(某个时间点，玩家获得不祥之兆)
+- ...(at some point, player obtains Bad Omen)
 - ...
-- GT 600: 袭击之兆剩余时间 1 gt，开始袭击事件，移除自身，触发 CME，不处理不祥之兆
-- GT 601: 不祥之兆符合转化条件，添加袭击之兆...
+- GT 600: Raid Omen remaining time 1 gt, starts raid event, removes itself, triggers CME, doesn't process Bad Omen
+- GT 601: Bad Omen meets conversion conditions, adds Raid Omen...
 
-最小袭击生成周期 601 gt。
+Minimum raid generation period 601 gt.
 
 
-## 七、总结
+## VII. Summary
 
-综上，可见 1.21.5 不祥之兆无限转化袭击之兆属于 Mojang 重构代码，（可能）尝试解决并发修改异常时，无意中制造的新特性。利用并发修改异常，除了可以免费获取袭击之兆以外，还可以跳过一部分状态效果计算，虽然暂不清楚是否能有意义地利用它，但是理解它的作用也多少有助于 Minecraft 生存技术的探索。
+In summary, the 1.21.5 infinite Bad Omen to Raid Omen conversion is a new feature Mojang inadvertently created when refactoring code, (possibly) attempting to resolve ConcurrentModificationException. Exploiting ConcurrentModificationException can not only obtain Raid Omen for free but also skip some status effect calculations. Although it's unclear whether this can be meaningfully exploited, understanding its effects does somewhat help with Minecraft survival technology exploration.
 
 
 <br>
@@ -388,4 +388,4 @@ CME 触发时，本游戏刻处理该玩家状态效果的循环会直接中断�
 <br>
 <br>
 
-"1.21.5+ 不祥之兆无限转化袭击之兆代码分析 —— 并发修改异常及其利用" © 2025 作者: Youmiel 采用 CC BY-NC-SA 4.0 许可。如需查看该许可证的副本，请访问 http://creativecommons.org/licenses/by-nc-sa/4.0/。
+"1.21.5+ Infinite Bad Omen to Raid Omen Conversion Code Analysis — ConcurrentModificationException and Its Exploitation" © 2025 Author: Youmiel, licensed under CC BY-NC-SA 4.0. To view a copy of this license, visit http://creativecommons.org/licenses/by-nc-sa/4.0/.

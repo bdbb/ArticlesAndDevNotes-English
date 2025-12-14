@@ -1,37 +1,37 @@
-# 专栏和开发笔记
+# Articles and Development Notes
 
-这个存储库用于记录我写过的专栏和笔记，部分内容曾经发布于 Bilibili 专栏。可惜的是，有很多资料（测试数据/存档等）因为体积问题没有办法上传。
+This repository is used to document articles and notes I've written. Some of the content was previously published on Bilibili. Unfortunately, many materials (test data/saves etc.) couldn't be uploaded due to file size limitations.
 
-除非特别注明，本存储库中的内容采用 CC BY-NC-SA 4.0 许可。
+Unless otherwise noted, the content in this repository is licensed under CC BY-NC-SA 4.0.
 
-## 文件结构
+## File Structure
 
-- `articles`: 专栏文章，主要是 Minecraft 机制阐述
-- `dev_notes`: 研究记录/开发笔记
-- `the_others`: 其他内容
+- `articles`: Articles, mainly about Minecraft mechanics explanations
+- `dev_notes`: Research records/development notes
+- `the_others`: Miscellaneous content
 
-目前的文件命名方式：`[dir]/[YYYY-MM]__[topic]/[YYYY-MM-DD]__[title].md`
+Current file naming convention: `[dir]/[YYYY-MM]__[topic]/[YYYY-MM-DD]__[title].md`
 
-## 目录
+## Table of Contents
 
-### 专栏
+### Articles
 
-- [从源码角度解析 Minecraft 龙战运作机制](./articles/2020-07__dragon_fight/)
-- [奇葩的末地门框架，竖着放也能用](./articles/2021-03__end_portal_frame/)
-- [1.17 快照版本的美西螈刷新机制](./articles/2021-05__axolotl_spawning/)
-- [用计算机程序模拟分析海带生长规律](./articles/2021-08__kelp_simulate/)
-- [Minecraft Java版本 1.17~1.18 苔藓块特性总结](./articles/2021-12__moss_properties/)
-- [快速回血信标(by Zomie101)时序分析](./articles/2022-04__fast_regen_beacon/)
-- [堆叠袭击塔对真人适用程度研究](./articles/2024-02__raid_explaination/)
-- [1.21 袭击机制笔记](./articles/2024-06__1-21_raid/)
-- [1.21.x 袭击者在 \[96, 112\) 区间内特殊表现的代码分析](./articles/2025-04__1-21_captain_replace/)
-- [1.21.5+ 不祥之兆无限转化袭击之兆代码分析 —— 并发修改异常及其利用](./articles/2025-08__1-21-5_infinite_omen/2025-08__1-21-5_infinite_omen.md)
-- [船与潜影贝的旋转问题](./articles/2025-09__shulker_rotation/2025-09__shulker_rotation.md)
+- [Analyzing Minecraft Dragon Fight Mechanics from Source Code](./articles/2020-07__dragon_fight/)
+- [The Quirky End Portal Frame: It Also Works Vertically!](./articles/2021-03__end_portal_frame/)
+- [Axolotl Spawning Mechanics in 1.17 Snapshot Versions](./articles/2021-05__axolotl_spawning/)
+- [Using Computer Programs to Simulate and Analyze Kelp Growth Patterns](./articles/2021-08__kelp_simulate/)
+- [Minecraft Java Edition 1.17~1.18 Moss Block Properties Summary](./articles/2021-12__moss_properties/)
+- [Timing Analysis of Fast Regeneration Beacon (by Zomie101)](./articles/2022-04__fast_regen_beacon/)
+- [Research on Stacking Raid Tower Applicability for Real Players](./articles/2024-02__raid_explaination/)
+- [1.21 Raid Mechanics Notes](./articles/2024-06__1-21_raid/)
+- [Code Analysis of Special Raider Behavior in \[96, 112) Range in 1.21.x](./articles/2025-04__1-21_captain_replace/)
+- [1.21.5+ Bad Omen Infinite Conversion to Raid Omen Code Analysis — ConcurrentModificationException and Its Exploitation](./articles/2025-08__1-21-5_infinite_omen/2025-08__1-21-5_infinite_omen.md)
+- [Boat and Shulker Rotation Issues](./articles/2025-09__shulker_rotation/2025-09__shulker_rotation.md)
 
 
-### 研究记录/开发笔记
+### Research Records/Development Notes
 
-- [海带生长模拟数据](./dev_notes/2021-08__kelp_simulate/)
-- [烟花掠夺稳定性测试](./dev_notes/2023-11__fireworks/)
-- [Minecraft 1.18.2+ 地狱堡垒刷怪游走问题的相关测试数据](./dev_notes/2024-04__fortress_packed_spawning/)
-- [1.21 袭击农场开发笔记](./dev_notes/2024-07__1-21_raid/)
+- [Kelp Growth Simulation Data](./dev_notes/2021-08__kelp_simulate/)
+- [Firework Looting Stability Test](./dev_notes/2023-11__fireworks/)
+- [Test Data Related to Minecraft 1.18.2+ Nether Fortress Mob Spawning Roaming Issues](./dev_notes/2024-04__fortress_packed_spawning/)
+- [1.21 Raid Farm Development Notes](./dev_notes/2024-07__1-21_raid/)
